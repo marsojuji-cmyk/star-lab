@@ -1,0 +1,23 @@
+name: lab-ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Unit tests
+        run: |
+          python3 -m unittest tests.test_tokens tests.test_forge -q
+          bash tests/test_lab_cli.sh
+      - name: Doctor (best effort)
+        run: |
+          chmod +x bin/* scripts/* tests/*.sh || true
+          ./bin/lab help
+        continue-on-error: true
