@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Grok Star Lab — unified CLI facade
+# PR1: doctor/status exec existing bins; dash opens HTML; install creates data dirs.
+set -euo pipefail
+
+# Resolve monorepo root from this script's location (works via symlink).
+_LAB_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${_LAB_BIN}/.." && pwd)"
+export ROOT
+
+# shellcheck disable=SC1091
+if [[ -f "${ROOT}/lib/common.sh" ]]; then
+  # shellcheck source=../lib/common.sh
+  source "${ROOT}/lib/common.sh"
+else
+  [[ -x "${HOME}/homebrew/bin/brew" ]] && eval "$("${HOME}/homebrew/bin/brew" shellenv)" 2>/dev/null || true
+  export PATH="${HOME}/.grok/bin:${HOME}/.local/bin:${HOME}/homebrew/bin:/usr/local/bin:${PATH}"
+fi
+
+usage() {
+  cat << EOF
+Grok Star Lab  (lab)
+
+  lab help                 this usage
+  lab doctor [args…]       full health check (exec bin/doctor)
+  lab status               one-screen vitals (exec bin/status)
+  lab install [args…]      create ~/.grok/lab, symlink, packaging pin
+  lab dash                 open Mission Control dashboard
+
+Later modules (forge, gym, arena, …) land in subsequent PRs.
+Data root: ~/.grok/lab
+Repo:      ${ROOT}
+EOF
+}
+
+cmd="${1:-help}"
+if [[ $# -gt 0 ]]; then
+  shift
+fi
+
+case "$cmd" in
+  help|-h|--help)
+    usage
+    exit 0
+    ;;
+  doctor)
+    exec "${_LAB_BIN}/doctor" "$@"
+    ;;
+  status)
+    exec "${_LAB_BIN}/status" "$@"
+    ;;
+  install)
+    install_sh="${ROOT}/scripts/install-lab.sh"
+    if [[ ! -f "$install_sh" ]]; then
+      echo "error: missing ${install_sh}" >&2
+      exit 1
+    fi
+    # shellcheck disable=SC1090
+    exec bash "$install_sh" "$@"
+    ;;
+  dash|dashboard)
+    # PR1: open static dashboard. Full snapshot/embed lands in PR2.
+    html="${ROOT}/dashboard/index.html"
+    if [[ ! -f "$html" ]]; then
+      echo "error: dashboard missing: ${html}" >&2
+      exit 1
+    fi
+    if command -v open >/dev/null 2>&1; then
+      open "$html"
+    elif command -v xdg-open >/dev/null 2>&1; then
+      xdg-open "$html"
+    else
+      echo "Open: ${html}"
+    fi
+    ;;
+  *)
+    echo "error: unknown command: ${cmd}" >&2
+    echo >&2
+    usage >&2
+    exit 2
+    ;;
+esac

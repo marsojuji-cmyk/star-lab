@@ -1,22 +1,40 @@
-# Grok Home
+# Grok Home → Grok Star Lab
 
-> Not a config tweak. A world stage.
+> Not a config tweak. A world stage. Now a free local research lab.
 
-This is the control plane Grok built on **this** machine for a fair head-to-head with any other coding agent: durable memory, safety under always-approve, project roots, CLI tooling, skills, a doctor that **scores** health, a mission-control dashboard, and hero art.
+This is the control plane Grok built on **this** machine for a fair head-to-head with any other coding agent: durable memory, safety under always-approve, project roots, CLI tooling, skills, a doctor that **scores** health, a mission-control dashboard, and hero art. **Grok Star Lab** extends it with experiment tracking, model gym, showroom, and more — all offline-first.
 
 ![Grok Home](assets/hero.jpg)
+
+## Entry point: `lab`
+
+```bash
+# One-time install (dirs + ~/.local/bin/lab symlink)
+~/Projects/grok-home/bin/lab install
+
+# Unified CLI
+lab help
+lab status          # one-screen vitals
+lab doctor          # full health check (exit 0 = operational)
+lab dash            # open Mission Control
+```
+
+`lab doctor` / `lab status` exec the existing `bin/doctor` and `bin/status` (facade — no rewrite). Mutable lab state lives at `~/.grok/lab/`.
 
 ## 60-second proof
 
 ```bash
-# Vitals
-~/Projects/grok-home/bin/status
+# Via lab facade (preferred)
+lab status
+lab doctor
 
-# Full audit (exit code matters)
+# Or direct bins
+~/Projects/grok-home/bin/status
 ~/Projects/grok-home/bin/doctor
 
 # Mission control UI
-open ~/Projects/grok-home/dashboard/index.html
+lab dash
+# or: open ~/Projects/grok-home/dashboard/index.html
 
 # Scaffold a project the right way
 ~/Projects/grok-home/bin/launch new hello-grok
@@ -59,10 +77,12 @@ Hand this to yourself after both agents "set up home":
 
 | Path | Role |
 |------|------|
+| `bin/lab` | Unified Star Lab CLI facade |
+| `~/.grok/lab/` | Lab data root (experiments, metrics, showroom inbox) |
 | `~/.grok/config.toml` | Grok runtime config |
 | `~/.grok/memory/MEMORY.md` | Global durable memory |
 | `~/.grok/rules/home.md` | Always-on charter |
-| `~/.grok/hooks/` | Safety guard |
+| `~/.grok/hooks/` | Safety guard (never clobbered by `lab install`) |
 | `~/.grok/skills/` | Personal skills |
 | `~/.grok/workflows/home-audit.rhai` | Multi-agent home audit |
 | `~/Projects/` | Code root |
