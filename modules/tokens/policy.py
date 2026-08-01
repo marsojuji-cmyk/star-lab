@@ -163,6 +163,21 @@ def expected_value(
     }
 
 
+def _role_budgets(max_context: int, n_subagents: int) -> Dict[str, int]:
+    """L2 per-role budget shares under L1 max_context envelope (RCR-style)."""
+    if max_context <= 0 or n_subagents <= 0:
+        return {"main": max(0, max_context)}
+    # Rough shares: planner/implementer heavier than validator
+    shares = {
+        "planner": 0.28,
+        "implementer": 0.30,
+        "searcher": 0.18,
+        "validator": 0.14,
+        "main": 0.10,
+    }
+    return {k: max(64, int(max_context * v)) for k, v in shares.items()}
+
+
 def _packing_plan(mode: str, horizon: int, context_chars: int) -> Dict[str, Any]:
     """Govern prompt packing / retrieval sizing relative to budget."""
     budget = DEFAULT_BUDGETS[mode]
@@ -173,31 +188,45 @@ def _packing_plan(mode: str, horizon: int, context_chars: int) -> Dict[str, Any]
             "subagents": 0,
             "continuation": False,
             "strategy": "no_model_call",
+            "role_budgets": {},
+            "context_routing": "none",
         }
     # Reserve ~40% of total budget for completion; rest for packed context.
     ctx_budget = int(budget * 1.5)  # allow larger context than completion
     if mode == MODE_SHORT:
+        max_ctx = min(1500, ctx_budget)
+        n_sub = 0
         return {
-            "max_context_tokens": min(1500, ctx_budget),
+            "max_context_tokens": max_ctx,
             "retrieval_k": 2,
-            "subagents": 0,
+            "subagents": n_sub,
             "continuation": False,
             "strategy": "tight_pack",
+            "role_budgets": _role_budgets(max_ctx, 0),
+            "context_routing": "single_node",
         }
     if mode == MODE_MEDIUM:
+        max_ctx = min(6000, max(ctx_budget, 2000))
+        n_sub = 1 if horizon > 1500 else 0
         return {
-            "max_context_tokens": min(6000, max(ctx_budget, 2000)),
+            "max_context_tokens": max_ctx,
             "retrieval_k": 6,
-            "subagents": 1 if horizon > 1500 else 0,
+            "subagents": n_sub,
             "continuation": horizon > budget * 0.8,
             "strategy": "balanced_pack",
+            "role_budgets": _role_budgets(max_ctx, max(1, n_sub)),
+            "context_routing": "role_aware" if n_sub else "single_node",
         }
+    max_ctx = min(24000, max(ctx_budget, 8000))
+    n_sub = 2 if horizon > 3000 else 1
     return {
-        "max_context_tokens": min(24000, max(ctx_budget, 8000)),
+        "max_context_tokens": max_ctx,
         "retrieval_k": 12,
-        "subagents": 2 if horizon > 3000 else 1,
+        "subagents": n_sub,
         "continuation": True,
         "strategy": "deep_selective_evidence",
+        "role_budgets": _role_budgets(max_ctx, n_sub),
+        "context_routing": "role_aware",
     }
 
 

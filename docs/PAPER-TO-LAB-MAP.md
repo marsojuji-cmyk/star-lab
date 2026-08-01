@@ -17,8 +17,8 @@ Grok becomes the **cloud frontier tier** of a Mac-local multi-agent OS. Local co
 | Tier 1 control plane | `lab tokens` + SessionStart boot + home rules (heuristic ForgeRNN stand-in) |
 | Routing skill | `lab tokens route` (local/short/medium/deep by EV) |
 | Token budget skill (LenVM) | `modules/tokens/horizon.py` + policy λ·kilotokens |
-| Loop 1 observe/compress/route | tokens route + knowledge FTS + packing plans |
-| Loop 2 propose/validate/recover | forge run + ship check + gym + arena |
+| Loop 1 observe/compress/route | tokens route + knowledge FTS + packing + **context packets** + **lab graph** role-aware carriage |
+| Loop 2 propose/validate/recover | forge run (`--recover`) + research recover + ship + gym + arena |
 | Loop 3 annotate/audit/distill | **`lab sqc`** + `lab tokens complete` + `lab tokens distill` |
 | Loop 4 measure/compare/redeploy | forge experiments, showroom, doctor, checklists |
 | Annotation quality skill | **`modules/sqc`** risk scorer + acceptance sampling + quality loop |
@@ -63,8 +63,9 @@ Do **not** distill training or routing data from rejected batches without correc
 
 1. Compressed retrieval → `lab knowledge` (FTS V1; latent CLaRa later)  
 2. Token-aware routing → `lab tokens`  
-3. LEAD-style recovery → forge/ship/arena validation (expand recovery paths next)  
+3. LEAD-style recovery → **`lab research recover`** + `forge --recover`  
 4. Annotation auditing → **`lab sqc`**  
+5. Role-aware context routing → **`lab graph`** (RCR-style L2; heuristic v1) 
 
 ---
 

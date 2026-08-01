@@ -27,11 +27,13 @@ def _usage() -> str:
     return """lab forge — local experiment tracking (SQLite + Markdown)
 
 Usage:
-  lab forge run  --exp NAME [--project P] [--tag TAG ...] [--timeout SECS] -- CMD [ARGS...]
+  lab forge run  --exp NAME [--project P] [--tag TAG ...] [--timeout SECS] [--recover] -- CMD [ARGS...]
   lab forge list [--exp NAME] [--limit N]
   lab forge show <run_id|exp_name>
   lab forge init --exp NAME [--project P] [--tag TAG ...]
   lab forge export [--exp NAME]          # JSONL to stdout
+
+  --recover   On non-zero exit, re-run the same command once (LEAD short-horizon)
 
 Environment:
   GROK_LAB_DATA   lab data root (default: ~/.grok/lab)
@@ -52,7 +54,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 2
     store = ForgeStore()
     tags = list(args.tag or [])
-    return run_command(
+    code = run_command(
         store,
         exp_name=exp,
         command=args.cmd,
@@ -60,6 +62,30 @@ def cmd_run(args: argparse.Namespace) -> int:
         tags=tags,
         timeout=args.timeout,
     )
+    # LEAD-style optional one-shot recovery: re-run the same command once on failure
+    if code != 0 and getattr(args, "recover", False):
+        print(
+            "forge: recovery — re-running once after failure (LEAD short-horizon)",
+            file=sys.stderr,
+        )
+        tags_rec = list(tags) + (["recovery"] if "recovery" not in tags else [])
+        code2 = run_command(
+            store,
+            exp_name=exp,
+            command=args.cmd,
+            project=args.project,
+            tags=tags_rec,
+            timeout=args.timeout,
+        )
+        if code2 == 0:
+            print("forge: recovery retry ok", file=sys.stderr)
+        else:
+            print(
+                "forge: recovery still failing — capture context packet before escalate",
+                file=sys.stderr,
+            )
+        return int(code2)
+    return int(code)
 
 
 def cmd_list(args: argparse.Namespace) -> int:
@@ -263,6 +289,11 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--project", default=None, help="Project label")
     pr.add_argument("--tag", action="append", default=[], help="Tag (repeatable)")
     pr.add_argument("--timeout", type=float, default=None, help="Optional timeout seconds")
+    pr.add_argument(
+        "--recover",
+        action="store_true",
+        help="On failure, re-run the same command once (LEAD short-horizon recovery)",
+    )
     pr.add_argument(
         "cmd",
         nargs=argparse.REMAINDER,

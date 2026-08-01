@@ -214,6 +214,20 @@ class ResearchLog:
         )
         self._save(p)
 
+    def attach_context_pack(self, task_id: str, pack: Dict[str, Any]) -> None:
+        """Merge/replace context_pack on an open task (e.g. from a packet)."""
+        p = self._load(task_id)
+        existing = p.get("context_pack") or {}
+        if not isinstance(existing, dict):
+            existing = {}
+        merged = dict(existing)
+        merged.update(pack or {})
+        p["context_pack"] = merged
+        # surface packet id if present
+        if pack.get("id"):
+            p["packet_id"] = pack.get("id")
+        self._save(p)
+
     def complete(
         self,
         task_id: str,

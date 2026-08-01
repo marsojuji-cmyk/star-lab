@@ -49,10 +49,14 @@ latency, human interruptions, SQC pass rates, token audit MAE.
 
 | Paper | This sprint |
 |-------|-------------|
-| Phase 1 logging | `lab research start/complete` |
+| Phase 1 logging | `lab research start/complete` + packets |
+| Loop 2 recover | `lab research recover` + `lab forge run --recover` |
 | Loop 3 quality | SQC gate on distill |
 | Loop 4 measure | `lab research kpi` + portal board |
-| Token-aware policy | still `lab tokens route` |
+| Token-aware policy | `lab tokens route` + shadow dual-log |
+| Multi-agent context | **`lab graph`** RCR-style carriage (L2) |
+
+See also: `docs/research/GRAPH-CONTEXT-ROUTING.md`
 
 ## Volume seed (judgment run)
 

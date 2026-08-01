@@ -61,13 +61,15 @@ Grok Star Lab  (lab)
   lab sandbox …            lab sandbox profiles
   lab dock …               integration dock / MCP fallbacks
   lab sqc …                SQC annotation quality (risk|sample|loop|asn)
-  lab research …           golden workflow log + Loop 4 KPIs
+  lab research …           golden log + packets + LEAD recover + KPIs
+  lab graph …              token-constrained context routing (L2 / RCR-style)
 
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
 Token policy: lab tokens policy  (auto-armed on SessionStart)
 Annotation quality: lab sqc loop  (Loop 3 gate before distill)
-Research log: lab research start|complete|kpi
+Research log: lab research start|packet|recover|complete|kpi
+Graph context: lab graph route-context|log-node|stats|ablate
 EOF
 }
 
@@ -139,6 +141,9 @@ case "$cmd" in
     ;;
   research)
     _py modules/research/cli.py "$@"
+    ;;
+  graph)
+    _py modules/graph/cli.py "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2

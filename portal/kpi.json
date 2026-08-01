@@ -1,11 +1,11 @@
 {
-  "n_completed_logs": 26,
-  "n_success": 24,
-  "test_pass_rate": 0.8823529411764706,
-  "accepted_patch_rate": 0.9230769230769231,
-  "average_tokens_per_success": 1190.8333333333333,
-  "recovery_rate_after_failure": 0.11538461538461539,
-  "latency_per_completed_task_s": 1.2677692307692305,
+  "n_completed_logs": 27,
+  "n_success": 25,
+  "test_pass_rate": 0.8888888888888888,
+  "accepted_patch_rate": 0.9259259259259259,
+  "average_tokens_per_success": 1175.2,
+  "recovery_rate_after_failure": 0.1111111111111111,
+  "latency_per_completed_task_s": 1.433222222222222,
   "human_interruptions_avg": 0.0,
   "sqc_pass_rate": 1.0,
   "token_audit_stats": {
@@ -31,5 +31,5 @@
   "sqc_loops_total": 3,
   "last_sqc_decision": "accept_batch",
   "schema_version": 1,
-  "generated_at": 1785603208.10361
+  "generated_at": 1785612465.6321752
 }
