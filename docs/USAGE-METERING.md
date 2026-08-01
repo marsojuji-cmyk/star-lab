@@ -42,3 +42,11 @@ gh repo create grok-home --private --source=. --remote=github --push
 ```
 
 Until then `origin` remains local: `/Users/a100/Projects/grok-home-origin.git`.
+
+## Local helper
+
+```bash
+# Edit endpoint first:
+$EDITOR ~/.grok/lab/otel.env
+bash ~/Projects/grok-home/scripts/check-otel-env.sh
+```

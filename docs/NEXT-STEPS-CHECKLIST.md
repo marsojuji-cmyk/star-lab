@@ -141,3 +141,22 @@ gh repo create grok-home --private --source=. --remote=github --push
 3. Optionally enable OTEL when you have a collector  
 
 Everything else from the ranked list that *could* be automated is checked off above.
+
+---
+
+## Run 321 (2026-08-01 later) — items 3 → 2 → 1
+
+### 3. OTEL / usage metering
+- [x] `packaging/otel/env.example`
+- [x] `~/.grok/lab/otel.env` (placeholder — needs real collector URL)
+- [x] `scripts/check-otel-env.sh`
+- [ ] Real endpoint + relaunch grok (needs your collector)
+
+### 2. Token route + complete volume
+- [x] 6 additional route+complete cycles (ops, cheap, feature, security review, multi-agent, knowledge)
+- [x] `lab tokens distill` → **1 rule** (short mode on low-horizon tasks)
+- [x] `lab tokens audit --stats` → n=7 completed with actuals
+
+### 1. GitHub remote
+- [ ] `gh auth login` still required
+- [x] Helper script: `scripts/push-to-github.sh` (run after login)
