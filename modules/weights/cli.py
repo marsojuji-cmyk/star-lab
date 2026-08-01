@@ -38,6 +38,12 @@ from weights.tokenizer_manifest import (
     bind_tokenizer_to_model_manifest,
     assert_tokenizer_compatible,
 )
+from weights.embedding_drift import (
+    load_slice_file,
+    run_drift_eval,
+    write_example_slices,
+    DriftGateConfig,
+)
 
 
 def cmd_layout(_args: argparse.Namespace) -> int:
@@ -46,7 +52,10 @@ def cmd_layout(_args: argparse.Namespace) -> int:
     print("Rule: train anywhere → publish safetensors + manifest.json → load via adapters.")
     print(f"Manifest schema_version: {SCHEMA_VERSION}")
     print(f"Schema file: {SCHEMA_PATH}")
-    print("Doc:  docs/SAFETENSORS-STANDARD.md  docs/MODEL-MANIFEST.md  docs/TOKENIZER-VERSIONING.md")
+    print(
+        "Doc:  docs/SAFETENSORS-STANDARD.md  docs/MODEL-MANIFEST.md  "
+        "docs/TOKENIZER-VERSIONING.md  docs/EMBEDDING-DRIFT.md"
+    )
     print(f"Tokenizer manifest schema: {TOK_SCHEMA_VERSION}")
     return 0
 
@@ -142,6 +151,57 @@ def cmd_metadata(args: argparse.Namespace) -> int:
         if r.get("n_tensors", 0) > args.limit:
             print(f"  … {r['n_tensors'] - args.limit} more")
     return 0
+
+
+def cmd_drift(args: argparse.Namespace) -> int:
+    sub = args.drift_cmd
+    if sub == "example":
+        p = write_example_slices(Path(args.path))
+        print(f"weights: wrote example slices → {p}")
+        return 0
+    if sub == "eval":
+        items = load_slice_file(Path(args.path))
+        cfg = DriftGateConfig()
+        if args.config:
+            raw = json.loads(Path(args.config).read_text(encoding="utf-8"))
+            for k, v in raw.items():
+                if hasattr(cfg, k):
+                    setattr(cfg, k, v)
+        report = run_drift_eval(items, cfg=cfg, nn_k=args.nn_k)
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            g = report.get("gate") or {}
+            print("═══ Embedding expansion drift ═══")
+            print(f"items: {report.get('n_items')}  slices: {report.get('slice_counts')}")
+            cos = (report.get("cosine_shift") or {}).get("by_slice") or {}
+            for sl in ("legacy", "new_token", "mixed"):
+                a = cos.get(sl)
+                if a:
+                    print(
+                        f"  cosine_shift[{sl}]: mean={a.get('mean_cosine_shift'):.4f} "
+                        f"max={a.get('max_cosine_shift'):.4f} n={a.get('n')}"
+                    )
+            nn = report.get("nn_stability") or {}
+            if nn.get("mean_jaccard") is not None:
+                print(f"  nn_jaccard: {nn['mean_jaccard']:.3f} (k={nn.get('k')})")
+            tasks = report.get("task_metrics") or {}
+            leg = tasks.get("legacy") or {}
+            if leg.get("acc_delta") is not None:
+                print(
+                    f"  task legacy: acc_base={leg.get('acc_baseline')} "
+                    f"acc_exp={leg.get('acc_expanded')} delta={leg.get('acc_delta')}"
+                )
+            print(f"verdict: {g.get('verdict')}")
+            for r in g.get("reasons") or []:
+                print(f"  - {r}")
+            print("Doc: docs/EMBEDDING-DRIFT.md")
+        v = (report.get("gate") or {}).get("verdict")
+        return {"expected": 0, "warning": 1, "harmful": 2, "insufficient_data": 3}.get(
+            v, 3
+        )
+    print("error: drift example|eval", file=sys.stderr)
+    return 2
 
 
 def cmd_tokenizer(args: argparse.Namespace) -> int:
@@ -495,6 +555,18 @@ def main(argv=None) -> int:
 
     tk_sc = tk_sub.add_parser("schema", help="Print tokenizer JSON Schema")
     tk_sc.set_defaults(func=cmd_tokenizer, tokenizer_cmd="schema")
+
+    dr = sub.add_parser("drift", help="Embedding expansion before/after drift eval")
+    dr_sub = dr.add_subparsers(dest="drift_cmd", required=True)
+    dr_e = dr_sub.add_parser("example", help="Write synthetic three-slice JSONL")
+    dr_e.add_argument("path", help="Output JSONL path")
+    dr_e.set_defaults(func=cmd_drift, drift_cmd="example")
+    dr_v = dr_sub.add_parser("eval", help="Run drift eval on slice file")
+    dr_v.add_argument("path", help="JSONL/JSON with emb_baseline + emb_expanded")
+    dr_v.add_argument("--config", help="JSON gate thresholds override")
+    dr_v.add_argument("--nn-k", type=int, default=3)
+    dr_v.add_argument("--json", action="store_true")
+    dr_v.set_defaults(func=cmd_drift, drift_cmd="eval")
 
     args = p.parse_args(argv)
     return int(args.func(args))

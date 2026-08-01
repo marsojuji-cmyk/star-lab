@@ -108,3 +108,4 @@ lab weights publish-check ./model --strict
 
 - `docs/MODEL-MANIFEST.md`  
 - `docs/SAFETENSORS-STANDARD.md`  
+- `docs/EMBEDDING-DRIFT.md` — before/after anchor tests after embedding expansion 
