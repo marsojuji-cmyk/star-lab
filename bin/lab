@@ -39,6 +39,8 @@ Grok Star Lab  (lab)
   lab install [args…]      create ~/.grok/lab, symlink, packaging pin
   lab dash                 open Mission Control dashboard
   lab forge …              experiment tracking (run|list|show|init|export)
+  lab design list|open|register
+                           Design Studio — register/list design docs
 
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
@@ -87,6 +89,9 @@ case "$cmd" in
     ;;
   forge)
     exec python3 "${ROOT}/modules/forge/cli.py" "$@"
+    ;;
+  design)
+    exec python3 "${ROOT}/modules/design/cli.py" "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2
