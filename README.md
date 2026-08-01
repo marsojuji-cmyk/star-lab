@@ -40,6 +40,32 @@ lab dash
 ~/Projects/grok-home/bin/launch new hello-grok
 ```
 
+## Star Lab modules
+
+| Module | CLI | Offline core |
+|--------|-----|--------------|
+| **Mission Control** | `lab dash` · `lab observatory` | Embed snapshot + file:// dashboard |
+| **Experiment Forge** | `lab forge` | SQLite + Markdown experiment ledger |
+| **Model Gym** | `lab gym` | Ollama smoke / eval (default `dolphin3`) |
+| **Agent Arena** | `lab arena` | Script pipelines; Rhai = session-tier |
+| **Design Studio** | `lab design` | Register/list design docs |
+| **Ship Bay** | `lab ship` | Local shipcheck + showroom inbox capture |
+| **Imagine Atelier** | `lab imagine` | Verify + gallery (generation optional) |
+| **Knowledge Crucible** | `lab knowledge` | FTS5 index/query |
+| **Observatory** | `lab observatory` | Doctor JSON → status embed |
+| **Sandbox Range** | `lab sandbox` | Seatbelt lab-* profiles |
+| **Integration Dock** | `lab dock` | MCP probe + offline fallbacks |
+| **Showroom** | `lab showroom` | Inbox → publish → static gallery |
+
+Mutable state: `~/.grok/lab/`. Proof: `docs/PROOF.txt`. Compare: `docs/COMPARE-WITH-CLAUDE.md`.
+
+```bash
+# Module + safety regression (PR13)
+bash tests/test_lab_modules.sh
+bash tests/test_safety_regression.sh
+lab doctor   # includes lab.module.* matrix rows
+```
+
 ## What shipped
 
 | Layer | What you get |
@@ -50,6 +76,7 @@ lab dash
 | **Playbooks** | Skills: `session-close`, `new-project`, `ship-it`, `home-doctor` |
 | **Orchestration** | Workflow `home-audit` under `~/.grok/workflows/` |
 | **Look** | Tokyo Night theme, fullscreen, collapsed edit blocks, hero + dashboard |
+| **Lab** | Twelve modules above; doctor module matrix; isolation tests |
 
 ## Why this is 100× a default install
 

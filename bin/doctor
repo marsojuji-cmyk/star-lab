@@ -153,6 +153,25 @@ else
   bad "safety hook failed deny path"
 fi
 
+# Star Lab module matrix — pass when cli present; warn on stub; never fail-closed
+# solely because an optional module has not shipped yet on this branch.
+hdr "Star Lab modules"
+_lab_modules=(
+  arena design dock forge gym imagine knowledge observatory sandbox ship showroom
+)
+for _m in "${_lab_modules[@]}"; do
+  _mdir="${ROOT}/modules/${_m}"
+  CHECK_ID="lab.module.${_m}"
+  if [[ -f "${_mdir}/cli.py" ]]; then
+    ok "module ${_m}  ${DIM}cli${RST}"
+  elif [[ -d "$_mdir" ]]; then
+    warn "module ${_m} present (stub — no cli yet)"
+  else
+    warn "module ${_m} missing"
+  fi
+done
+unset _m _mdir _lab_modules
+
 hdr "Runtime"
 if command -v grok >/dev/null 2>&1; then
   CHECK_ID="runtime.grok_version"

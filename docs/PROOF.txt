@@ -1,4 +1,9 @@
-timestamp=2026-08-01T04:04:25Z
+# Grok Home / Star Lab — re-runnable proof snapshot
+# Generated: 2026-08-01T05:54:31Z  host=MacBookPro
+# Re-run: lab doctor && tests/test_safety_regression.sh && tests/test_lab_modules.sh
+
+## Host vitals
+timestamp=2026-08-01T05:54:31Z
 host=MacBookPro
 grok=grok 0.2.118 (1e1687c1cf6a) [stable]
 rg=ripgrep 15.2.0
@@ -6,6 +11,92 @@ fd=fd 10.4.2
 fzf=0.74.1 (Homebrew)
 gh=gh version 2.97.0 (2026-07-31)
 brew=Homebrew 6.0.14
-projects=AGENTS.md claude-compare-demo grok-home README.md 
-skills=home-doctor new-project session-close ship-it 
-hooks=safety-guard.json session-banner.json 
+projects=AGENTS.md claude-compare-demo grok-home README.md
+skills=home-doctor new-project session-close ship-it
+hooks=safety-guard.json session-banner.json
+ollama_models=dolphin3:latest
+
+## Doctor (lab doctor / bin/doctor)
+# Exit 0 = OPERATIONAL. Human score greppable as pass=/warn=/fail=.
+doctor_status=OPERATIONAL
+doctor_score=pass=45 warn=6 fail=0 total=51
+# (module stubs → warn; safety + core toolchain + cli modules → pass)
+doctor_safety.allow=pass
+doctor_safety.deny=pass
+doctor_file.safety_hook=pass
+doctor_file.safety_script=pass
+# Module matrix ids: lab.module.<name> ∈ {pass,warn}
+# pass when modules/<name>/cli.py present; warn on stub/.gitkeep only
+
+## Safety isolation
+# Real hook (read-only):
+#   python3 ~/.grok/hooks/scripts/safety_guard.py <<<'{"command":"echo hello"}'  → allow
+#   python3 ~/.grok/hooks/scripts/safety_guard.py <<<'{"command":"rm -rf /"}'    → deny
+# Regression suite (also temp GROK_HOME copy, no writes to ~/.grok):
+#   bash tests/test_safety_regression.sh
+
+## Star Lab modules
+# Unified CLI: bin/lab  (or ~/.local/bin/lab after `lab install`)
+lab_help=exit 0
+lab_data_root=~/.grok/lab
+
+# Doctor / Mission Control
+lab doctor          # full health (facade → bin/doctor)
+lab doctor --json   # schema_version + checks[]
+lab status          # one-screen vitals
+lab dash            # observatory snapshot + open Mission Control
+lab observatory snapshot
+
+# Experiment Forge (offline SQLite + Markdown)
+lab forge help
+lab forge init --exp demo
+lab forge run --exp demo -- true
+lab forge list
+
+# Model Gym (offline Ollama smoke; default dolphin3 when module shipped)
+# lab gym help
+# lab gym eval --suite smoke    # skip cleanly if ollama down
+# Showroom seed references offline gym: showroom/entries/model-gym-offline-eval-20260731/
+
+# Showroom (inbox capture + curated gallery)
+lab showroom -h
+lab showroom list
+lab showroom capture --title "proof" --summary "docs/PROOF.txt"
+# curated entries (this tree):
+showroom_entries=claude-compare-demo-20260731 grok-home-control-plane-20260731 model-gym-offline-eval-20260731
+showroom_index=showroom/index.html
+
+# Design Studio / Ship Bay (when wired)
+lab design help
+lab ship -h
+lab ship check --no-doctor
+
+## Module index (repo modules/)
+# status: cli = has cli.py; stub = placeholder only
+module.arena=stub
+module.design=cli
+module.dock=stub
+module.forge=cli
+module.gym=stub
+module.imagine=stub
+module.knowledge=stub
+module.observatory=cli
+module.sandbox=stub
+module.ship=cli
+module.showroom=cli
+
+## Automated tests (PR13)
+# bash tests/test_safety_regression.sh   # allow/deny isolation
+# bash tests/test_lab_modules.sh         # lab help + module matrix + doctor safety
+# bash tests/test_doctor_compat.sh
+# bash tests/test_lab_cli.sh
+
+## Re-verify anytime
+export PATH="$HOME/homebrew/bin:$HOME/.local/bin:$PATH"
+lab status
+lab doctor
+lab forge help
+lab showroom list
+open "$(lab observatory snapshot >/dev/null; echo "${GROK_LAB_REPO:-$HOME/Projects/grok-home}/dashboard/index.html")"
+# or: open ~/Projects/grok-home/dashboard/index.html
+# or: open ~/Projects/grok-home/showroom/index.html

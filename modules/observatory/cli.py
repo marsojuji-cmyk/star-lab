@@ -158,12 +158,21 @@ def _safety_from_doctor(doctor: Dict[str, Any]) -> Dict[str, bool]:
     return {"hook": hook, "deny_rules": deny}
 
 
+def _module_status(root: Path, name: str) -> str:
+    """ok = has cli.py; warn = dir present without cli; off = missing."""
+    mdir = root / "modules" / name
+    if (mdir / "cli.py").is_file():
+        return "ok"
+    if mdir.is_dir():
+        return "warn"
+    return "off"
+
+
 def build_status(root: Path, doctor: Dict[str, Any]) -> Dict[str, Any]:
     lab = lab_data_root()
-    modules = {name: "off" for name in MODULE_NAMES}
+    modules = {name: _module_status(root, name) for name in MODULE_NAMES}
+    # Observatory is always "ok" when this code runs (self).
     modules["observatory"] = "ok"
-    if (root / "modules" / "showroom" / "regen_index.py").is_file():
-        modules["showroom"] = "ok"
 
     showroom_entries = root / "showroom" / "entries"
     showroom_inbox = lab / "showroom" / "inbox"
