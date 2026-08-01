@@ -126,17 +126,17 @@ Audit DB: `~/.grok/lab/token_policy.db` (or `$GROK_LAB_DATA/token_policy.db`).
 | `GROK_TOKEN_SHADOW` | `1` | set `0` to disable shadow dual-log |
 | `GROK_SESSION_ID` / `GROK_TENANT` | unset / `local` | stamped on shadow rows |
 
-### Closed-loop gates (observation → influence)
+### Closed-loop gates (four-stage progressive delivery)
 
 ```bash
-lab tokens eval                 # frozen golden suite (router_v1)
-lab tokens eval --freeze-baseline
-lab tokens eval --drift         # live drift vs baseline
-lab tokens gates                # data bar: ready_for_canary / ready_for_online
-lab tokens canary propose|start|rollback|promote
+lab tokens eval && lab tokens gates
+lab tokens shadow compare
+lab tokens rollout propose|shadow-ok|start|check|advance|rollback|drill
 lab tokens session lock --mode medium --reason tool_loop
+lab graph breaker trip --role implementer
 ```
 
+Stages: **shadow → canary 1–5% → ramp 10/25/50 → full** (window pack + hard stops).  
 Full spec: `docs/research/CLOSED-LOOP-GATES.md`
 
 ---
