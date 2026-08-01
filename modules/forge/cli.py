@@ -31,7 +31,7 @@ Usage:
   lab forge list [--exp NAME] [--limit N]
   lab forge show <run_id|exp_name>
   lab forge init --exp NAME [--project P] [--tag TAG ...]
-  lab forge export [--exp NAME] [--jsonl]
+  lab forge export [--exp NAME]          # JSONL to stdout
 
 Environment:
   GROK_LAB_DATA   lab data root (default: ~/.grok/lab)

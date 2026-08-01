@@ -1,5 +1,6 @@
 -- Grok Star Lab — Experiment Forge schema (v1)
 -- Applied with PRAGMA user_version=1; journal_mode=WAL.
+-- Numbered migrations/ deferred until schema v2; v1 is a single schema.sql apply.
 
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;

@@ -5,14 +5,19 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+# GNU timeout convention for wall-clock abort
+EXIT_TIMEOUT = 124
 
 # lib/lab_paths.py — modules/forge is not itself on path; lib is sibling of modules.
 _HERE = Path(__file__).resolve().parent
@@ -49,15 +54,29 @@ def run_dir(run_id: str) -> Path:
 
 
 def atomic_write_text(path: Path, content: str) -> None:
-    """Write via temp file + os.replace (atomic on same filesystem)."""
+    """Write via unique temp file + fsync + os.replace (atomic on same FS)."""
     path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(content, encoding="utf-8")
+    tmp = path.with_name("%s.%s.tmp" % (path.name, uuid.uuid4().hex[:8]))
     try:
-        os.chmod(tmp, 0o600)
-    except OSError:
-        pass
-    os.replace(tmp, path)
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(content)
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except OSError:
+                pass
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            if tmp.is_file():
+                tmp.unlink()
+        except OSError:
+            pass
+        raise
 
 
 def atomic_write_json(path: Path, obj: Any) -> None:
@@ -284,18 +303,6 @@ class ForgeStore:
                 ).fetchall()
             return [dict(r) for r in rows]
 
-    def update_run_json_blob(
-        self, run_id: str, column: str, data: Dict[str, Any]
-    ) -> None:
-        if column not in ("params", "metrics"):
-            raise ValueError("column must be params or metrics")
-        with self.connect() as conn:
-            conn.execute(
-                "UPDATE runs SET %s = ? WHERE id = ?" % column,
-                (json.dumps(data), run_id),
-            )
-            conn.commit()
-
     def log_metric(
         self, run_id: str, key: str, value: float, step: int = 0
     ) -> None:
@@ -486,6 +493,98 @@ class Forge:
         self.store.log_artifact(self.run_id, str(path), kind=kind)
 
 
+def _child_env(run_id: str) -> Dict[str, str]:
+    """Build child env: GROK_LAB_* plus PYTHONPATH for zero-boilerplate Forge import."""
+    env = os.environ.copy()
+    env["GROK_LAB_RUN_ID"] = run_id
+    env["GROK_LAB_DATA"] = str(lab_data_root())
+    repo = repo_root()
+    env["GROK_LAB_REPO"] = str(repo)
+    # Prepend modules/ + lib/ so `from forge import Forge` works without path surgery.
+    prepend = [str(repo / "modules"), str(repo / "lib")]
+    existing = env.get("PYTHONPATH", "")
+    if existing:
+        env["PYTHONPATH"] = os.pathsep.join(prepend + [existing])
+    else:
+        env["PYTHONPATH"] = os.pathsep.join(prepend)
+    return env
+
+
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    """Kill child process group (start_new_session) or fall back to proc.kill()."""
+    if proc.poll() is not None:
+        return
+    try:
+        # start_new_session=True → child is session/process-group leader
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+
+
+def _stream_child(
+    proc: subprocess.Popen,
+    logf: Any,
+    timeout: Optional[float],
+) -> Tuple[Optional[int], str]:
+    """
+    Tee child stdout (stderr merged) to terminal + log; enforce wall-clock timeout.
+
+    Reader runs in a thread so blocking reads never prevent timeout. Returns
+    (exit_code, status_hint) where status_hint is '' | 'aborted'.
+    """
+    assert proc.stdout is not None
+    status_hint = ""
+    exit_code: Optional[int] = None
+
+    def reader() -> None:
+        try:
+            while True:
+                chunk = proc.stdout.read(4096)
+                if not chunk:
+                    break
+                sys.stdout.buffer.write(chunk)
+                sys.stdout.buffer.flush()
+                logf.write(chunk)
+                logf.flush()
+        except (ValueError, OSError):
+            # pipe closed after kill
+            pass
+
+    thr = threading.Thread(target=reader, name="forge-stdout", daemon=True)
+    thr.start()
+    try:
+        try:
+            exit_code = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_process_tree(proc)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+            exit_code = EXIT_TIMEOUT
+            status_hint = "aborted"
+            print("\nforge: aborted (timeout)", file=sys.stderr)
+        except KeyboardInterrupt:
+            _kill_process_tree(proc)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+            exit_code = 130
+            status_hint = "aborted"
+            print("\nforge: aborted (interrupt)", file=sys.stderr)
+    finally:
+        thr.join(timeout=2.0)
+        try:
+            proc.stdout.close()
+        except OSError:
+            pass
+    return exit_code, status_hint
+
+
 def run_command(
     store: ForgeStore,
     exp_name: str,
@@ -498,6 +597,7 @@ def run_command(
     Create experiment/run, set GROK_LAB_RUN_ID, exec command, dual-write, return exit code.
 
     Forge process exit code == child exit code (CI-friendly).
+    Timeout → status=aborted, exit 124 (GNU timeout convention).
     """
     if not command:
         raise ValueError("command is required")
@@ -508,10 +608,7 @@ def run_command(
     rd = run_dir(run_id)
     console_path = rd / "console.log"
 
-    env = os.environ.copy()
-    env["GROK_LAB_RUN_ID"] = run_id
-    env["GROK_LAB_DATA"] = str(lab_data_root())
-    env["GROK_LAB_REPO"] = str(repo_root())
+    env = _child_env(run_id)
 
     print("forge: run_id=%s exp=%s status=running" % (run_id, exp_name), file=sys.stderr)
     print("forge: cmd=%s" % " ".join(command), file=sys.stderr)
@@ -528,38 +625,11 @@ def run_command(
                 cwd=os.getcwd(),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                start_new_session=True,
             )
-            try:
-                assert proc.stdout is not None
-                try:
-                    while True:
-                        chunk = proc.stdout.read(4096)
-                        if not chunk:
-                            break
-                        sys.stdout.buffer.write(chunk)
-                        sys.stdout.buffer.flush()
-                        logf.write(chunk)
-                        logf.flush()
-                    exit_code = proc.wait(timeout=timeout)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait()
-                    exit_code = -1
-                    status = "aborted"
-                    print("\nforge: aborted (timeout)", file=sys.stderr)
-                except KeyboardInterrupt:
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                        proc.wait()
-                    exit_code = 130
-                    status = "aborted"
-                    print("\nforge: aborted (interrupt)", file=sys.stderr)
-            finally:
-                if proc.stdout is not None:
-                    proc.stdout.close()
+            exit_code, status_hint = _stream_child(proc, logf, timeout)
+            if status_hint == "aborted":
+                status = "aborted"
     except FileNotFoundError:
         print("forge: command not found: %s" % command[0], file=sys.stderr)
         exit_code = 127
