@@ -122,10 +122,28 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
 
 def cmd_distill(args: argparse.Namespace) -> int:
+    from tokens.distill import SQCGateError
+
     store = AuditStore()
-    rules = distill_rules(store, min_support=args.min_support)
-    print(json.dumps(rules, indent=2))
-    print(f"# distilled {len(rules)} rule(s)", file=sys.stderr)
+    try:
+        rules, gate = distill_rules(
+            store,
+            min_support=args.min_support,
+            require_sqc=not args.ungated,
+            allow_ungated=args.ungated,
+        )
+    except SQCGateError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    out = {"rules": rules, "sqc_gate": gate, "n_rules": len(rules)}
+    if args.json:
+        print(json.dumps(out, indent=2))
+    else:
+        print(json.dumps(rules, indent=2))
+        print(
+            f"# distilled {len(rules)} rule(s) · sqc_gate={gate}",
+            file=sys.stderr,
+        )
     return 0
 
 
@@ -141,12 +159,14 @@ TOKEN AWARENESS IS THE OPERATING POLICY (Grok Star Lab / Grok Build)
 4. Cheap / ops tasks never consume deep budget.
 5. Packing, retrieval_k, subagents, continuation are governed by mode.
 6. Audit actual tokens vs outcome → distill rules → redeploy continuously.
+7. Distill is gated by lab sqc loop (Loop 3) — quality_sufficient required.
 
 CLI:
   lab tokens route "your task"
   lab tokens complete --audit-id ID --actual-tokens N --quality 0.0-1.0
   lab tokens audit --stats
-  lab tokens distill
+  lab tokens distill          # requires last lab sqc loop pass
+  lab research kpi            # Loop 4 board
 """.strip()
     print(text)
     return 0
@@ -184,8 +204,17 @@ def main(argv: Optional[list] = None) -> int:
     u.add_argument("--json", action="store_true")
     u.set_defaults(func=cmd_audit)
 
-    d = sub.add_parser("distill", help="Distill routing rules from audits")
+    d = sub.add_parser(
+        "distill",
+        help="Distill routing rules from audits (blocked unless last lab sqc loop passed)",
+    )
     d.add_argument("--min-support", type=int, default=3)
+    d.add_argument(
+        "--ungated",
+        action="store_true",
+        help="Bypass SQC Loop 3 gate (bootstrap/debug only)",
+    )
+    d.add_argument("--json", action="store_true")
     d.set_defaults(func=cmd_distill)
 
     pol = sub.add_parser("policy", help="Print operating policy")

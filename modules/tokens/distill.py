@@ -2,23 +2,95 @@
 
 from __future__ import annotations
 
+import json
+import os
 from collections import defaultdict
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from .audit import AuditStore
 
 
-def distill_rules(store: AuditStore, min_support: int = 3) -> List[Dict[str, Any]]:
+class SQCGateError(RuntimeError):
+    """Raised when distill is blocked by the annotation quality (Loop 3) gate."""
+
+
+def _lab_data() -> Path:
+    env = os.environ.get("GROK_LAB_DATA")
+    if env:
+        return Path(env).expanduser()
+    return Path.home() / ".grok" / "lab"
+
+
+def last_sqc_loop() -> Optional[Dict[str, Any]]:
+    path = _lab_data() / "sqc" / "loop_log.jsonl"
+    if not path.exists():
+        return None
+    last = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            last = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+    return last
+
+
+def assert_sqc_gate(allow_ungated: bool = False) -> Dict[str, Any]:
     """
-    From completed audits, emit simple if-then routing rules:
-      if tags-like task patterns underperform in deep with low quality → prefer medium
-      if short succeeds with high quality → prefer short for similar horizon band
+    Hard gate for Loop 3: refuse distill unless the latest SQC loop accepted.
+
+    Set allow_ungated=True or env GROK_SQC_DISTILL_UNGated=1 only for bootstrap/debug.
     """
+    if allow_ungated or os.environ.get("GROK_SQC_DISTILL_UNGATED", "").strip() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return {"gated": False, "reason": "ungated_override"}
+
+    last = last_sqc_loop()
+    if last is None:
+        raise SQCGateError(
+            "distill blocked: no lab sqc loop log yet. "
+            "Run `lab sqc loop --file items.json` and get quality_sufficient=true first "
+            "(or GROK_SQC_DISTILL_UNGATED=1 for bootstrap only)."
+        )
+    if not last.get("quality_sufficient"):
+        raise SQCGateError(
+            "distill blocked: last SQC loop did not pass quality gate "
+            f"(decision={last.get('decision')}, loop_id={last.get('loop_id')}). "
+            "Correct annotations / re-run lab sqc loop before distill."
+        )
+    return {
+        "gated": True,
+        "loop_id": last.get("loop_id"),
+        "decision": last.get("decision"),
+    }
+
+
+def distill_rules(
+    store: AuditStore,
+    min_support: int = 3,
+    *,
+    require_sqc: bool = True,
+    allow_ungated: bool = False,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """
+    From completed audits, emit simple if-then routing rules.
+
+    Returns (rules, gate_info). Raises SQCGateError if require_sqc and gate fails.
+    """
+    gate_info: Dict[str, Any] = {"gated": False}
+    if require_sqc:
+        gate_info = assert_sqc_gate(allow_ungated=allow_ungated)
+
     rows = store.recent(limit=500)
     # Only rows with outcome
     done = [r for r in rows if r.get("outcome_quality") is not None or r.get("success") is not None]
     if not done:
-        return []
+        return [], gate_info
 
     by_mode: Dict[str, List[dict]] = defaultdict(list)
     for r in done:
@@ -72,4 +144,4 @@ def distill_rules(store: AuditStore, min_support: int = 3) -> List[Dict[str, Any
         rules.append(rule)
         store.save_rule(rule, support=len(local_ok), notes="distill:local_ops")
 
-    return rules
+    return rules, gate_info

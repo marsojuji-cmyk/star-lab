@@ -61,11 +61,13 @@ Grok Star Lab  (lab)
   lab sandbox …            lab sandbox profiles
   lab dock …               integration dock / MCP fallbacks
   lab sqc …                SQC annotation quality (risk|sample|loop|asn)
+  lab research …           golden workflow log + Loop 4 KPIs
 
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
 Token policy: lab tokens policy  (auto-armed on SessionStart)
 Annotation quality: lab sqc loop  (Loop 3 gate before distill)
+Research log: lab research start|complete|kpi
 EOF
 }
 
@@ -134,6 +136,9 @@ case "$cmd" in
     ;;
   sqc|quality)
     _py modules/sqc/cli.py "$@"
+    ;;
+  research)
+    _py modules/research/cli.py "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2

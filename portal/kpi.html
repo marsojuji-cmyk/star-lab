@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Research KPI Board · Loop 4</title>
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; background:#0b1020; color:#e8eefc; padding:28px; }
+  h1 { margin:0 0 6px; }
+  .sub { color:#9aa8c7; margin-bottom:22px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+  .card { background:#121a2f; border:1px solid #243049; border-radius:12px; padding:14px; }
+  .k { color:#9aa8c7; font-size:0.75rem; text-transform:uppercase; letter-spacing:.06em; }
+  .v { font-size:1.4rem; margin-top:6px; font-variant-numeric:tabular-nums; }
+  a { color:#7aa2ff; }
+  pre { background:#0a0f1c; padding:12px; border-radius:10px; overflow:auto; font-size:0.8rem; }
+</style>
+</head>
+<body>
+  <h1>Research KPI Board</h1>
+  <p class="sub">Loop 4 · measure / compare / redeploy · 2026-08-01 16:51 UTC · <a href="index.html">portal</a></p>
+  <div class="grid">
+    <div class="card"><div class="k">Completed logs</div><div class="v">1</div></div>
+    <div class="card"><div class="k">Accepted patch rate</div><div class="v">1.000</div></div>
+    <div class="card"><div class="k">Test pass rate</div><div class="v">1.000</div></div>
+    <div class="card"><div class="k">Avg tokens / success</div><div class="v">1500.000</div></div>
+    <div class="card"><div class="k">Recovery rate</div><div class="v">0.000</div></div>
+    <div class="card"><div class="k">Latency / task (s)</div><div class="v">0.575</div></div>
+    <div class="card"><div class="k">Human interrupts avg</div><div class="v">0.000</div></div>
+    <div class="card"><div class="k">SQC task pass rate</div><div class="v">1.000</div></div>
+    <div class="card"><div class="k">SQC loop accept rate</div><div class="v">0.500</div></div>
+    <div class="card"><div class="k">Token audits n</div><div class="v">16</div></div>
+    <div class="card"><div class="k">Token horizon MAE</div><div class="v">1815.500</div></div>
+    <div class="card"><div class="k">Last SQC decision</div><div class="v" style="font-size:1rem">accept_batch</div></div>
+  </div>
+  <h2 style="margin-top:28px;font-size:1rem;color:#9aa8c7">Raw JSON</h2>
+  <pre>{
+  "n_completed_logs": 1,
+  "n_success": 1,
+  "test_pass_rate": 1.0,
+  "accepted_patch_rate": 1.0,
+  "average_tokens_per_success": 1500.0,
+  "recovery_rate_after_failure": 0.0,
+  "latency_per_completed_task_s": 0.575,
+  "human_interruptions_avg": 0.0,
+  "sqc_pass_rate": 1.0,
+  "token_audit_stats": {
+    "n": 16,
+    "mae": 1815.5,
+    "overrun_rate": 0.8125,
+    "by_mode": {
+      "short": {
+        "n": 8,
+        "mae": 2366.0
+      },
+      "local": {
+        "n": 6,
+        "mae": 78.33333333333333
+      },
+      "deep": {
+        "n": 2,
+        "mae": 4825.0
+      }
+    }
+  },
+  "sqc_loop_accept_rate": 0.5,
+  "sqc_loops_total": 2,
+  "last_sqc_decision": "accept_batch",
+  "schema_version": 1,
+  "generated_at": 1785603077.150429
+}</pre>
+</body>
+</html>

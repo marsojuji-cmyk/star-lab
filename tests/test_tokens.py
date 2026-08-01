@@ -103,8 +103,11 @@ class TestAuditDistill(unittest.TestCase):
                 store.complete(a, actual_tokens=180, outcome_quality=0.9, success=True)
             stats = store.error_stats()
             self.assertGreaterEqual(stats["n"], 5)
-            rules = distill_rules(store, min_support=3)
+            rules, gate = distill_rules(
+                store, min_support=3, require_sqc=False, allow_ungated=True
+            )
             self.assertIsInstance(rules, list)
+            self.assertIsInstance(gate, dict)
             recent = store.recent(5)
             self.assertTrue(recent)
 

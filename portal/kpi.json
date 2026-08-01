@@ -1,0 +1,35 @@
+{
+  "n_completed_logs": 1,
+  "n_success": 1,
+  "test_pass_rate": 1.0,
+  "accepted_patch_rate": 1.0,
+  "average_tokens_per_success": 1500.0,
+  "recovery_rate_after_failure": 0.0,
+  "latency_per_completed_task_s": 0.575,
+  "human_interruptions_avg": 0.0,
+  "sqc_pass_rate": 1.0,
+  "token_audit_stats": {
+    "n": 16,
+    "mae": 1815.5,
+    "overrun_rate": 0.8125,
+    "by_mode": {
+      "short": {
+        "n": 8,
+        "mae": 2366.0
+      },
+      "local": {
+        "n": 6,
+        "mae": 78.33333333333333
+      },
+      "deep": {
+        "n": 2,
+        "mae": 4825.0
+      }
+    }
+  },
+  "sqc_loop_accept_rate": 0.5,
+  "sqc_loops_total": 2,
+  "last_sqc_decision": "accept_batch",
+  "schema_version": 1,
+  "generated_at": 1785603077.150429
+}
