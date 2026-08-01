@@ -160,3 +160,38 @@ Everything else from the ranked list that *could* be automated is checked off ab
 ### 1. GitHub remote
 - [ ] `gh auth login` still required
 - [x] Helper script: `scripts/push-to-github.sh` (run after login)
+
+---
+
+## Do-all run (2026-08-01) — all ranked next steps
+
+### 1. Real lab work
+- [x] starlab-demo calc module + tests
+- [x] forge exp starlab-demo-calc (exit 0, 4 tests)
+- [x] forge-wrapped gym smoke 3/3
+- [x] arena lab-audit pass=20
+- [x] knowledge index + query "token"
+- [x] ship check on git-init'd demo
+- [x] showroom entry calc e2e published
+
+### 2. GitHub
+- [ ] gh auth login (still blocked)
+- [x] CI workflow scaffold `.github/workflows/lab-ci.yml` (ready when remote exists)
+- [x] scripts/push-to-github.sh already present
+
+### 3. Token control plane volume
+- [x] 8+ additional complete cycles
+- [x] audit stats n=16
+- [x] distill **2 rules** (short on low-horizon; local for status/doctor/help)
+
+### 4. OTEL
+- [x] packaging/otel/README.md + env example + check script
+- [ ] real collector endpoint (needs you)
+
+### 5. Optional polish
+- [x] prune all execute-plan worktrees
+- [x] local portal server http://127.0.0.1:8765/portal/
+- [x] CI yaml scaffold
+- [·] Graphite / Docker / LenVM probe deferred
+
+**main tip:** see git log
