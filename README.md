@@ -12,14 +12,14 @@ This is the control plane Grok built on **this** machine for a fair head-to-head
 # One-time install (dirs + ~/.local/bin/lab symlink)
 ~/Projects/grok-home/bin/lab install
 
-# Unified CLI
+# Unified CLI (requires ~/.local/bin on PATH; no bashrc alias in v1)
 lab help
 lab status          # one-screen vitals
 lab doctor          # full health check (exit 0 = operational)
 lab dash            # open Mission Control
 ```
 
-`lab doctor` / `lab status` exec the existing `bin/doctor` and `bin/status` (facade — no rewrite). Mutable lab state lives at `~/.grok/lab/`.
+`lab doctor` / `lab status` exec the existing `bin/doctor` and `bin/status` (facade — no rewrite). Mutable lab state lives at `~/.grok/lab/`. Install is idempotent and never touches safety hooks.
 
 ## 60-second proof
 

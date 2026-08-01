@@ -4,10 +4,21 @@
 # Does NOT clobber safety hooks, deny rules, or user skills outside packaging install.
 set -euo pipefail
 
-# Resolve repo root (script lives in scripts/)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve repo root (script lives in scripts/); follow symlinks for safety.
+_inst_src="${BASH_SOURCE[0]}"
+while [[ -L "$_inst_src" ]]; do
+  _inst_dir="$(cd "$(dirname "$_inst_src")" && pwd)"
+  _inst_link="$(readlink "$_inst_src")"
+  if [[ "$_inst_link" != /* ]]; then
+    _inst_src="${_inst_dir}/${_inst_link}"
+  else
+    _inst_src="$_inst_link"
+  fi
+done
+SCRIPT_DIR="$(cd "$(dirname "$_inst_src")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 export ROOT
+unset _inst_src _inst_dir _inst_link
 
 # shellcheck disable=SC1091
 if [[ -f "${ROOT}/lib/common.sh" ]]; then
@@ -28,22 +39,19 @@ Usage: install-lab.sh [--dry-run]
   Symlink ~/.local/bin/lab -> repo bin/lab
 
 Does not modify safety hooks, deny lists, or permission_mode.
+Does not chmod user content under lab data on re-run (only known dirs
+and install-owned files: .skills_version, config.toml when created).
+
+PR1 entry point is the ~/.local/bin/lab symlink (no bashrc alias).
 EOF
       exit 0
       ;;
   esac
 done
 
-run() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    echo "[dry-run] $*"
-  else
-    "$@"
-  fi
-}
-
 LAB_DATA="${GROK_LAB_DATA:-${HOME}/.grok/lab}"
-LOCAL_BIN="${HOME}/.local/bin"
+# Allow tests / alternate install locations for the lab symlink.
+LOCAL_BIN="${GROK_LAB_LOCAL_BIN:-${HOME}/.local/bin}"
 LAB_BIN="${ROOT}/bin/lab"
 VERSION_FILE="${ROOT}/packaging/VERSION"
 VERSION="0.1.0"
@@ -59,34 +67,33 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   echo "  mode:    dry-run"
 fi
 
-# 1. Lab data directories (0700). Never touch hooks under ~/.grok/hooks.
+# 1. Lab data directories (0700). Keep in sync with lib/lab_paths.py ensure_lab_dirs().
+# Never touch hooks under ~/.grok/hooks.
 SUBDIRS=(
   "${LAB_DATA}"
   "${LAB_DATA}/experiments"
+  "${LAB_DATA}/metrics"
   "${LAB_DATA}/metrics/daily"
   "${LAB_DATA}/knowledge"
   "${LAB_DATA}/knowledge/embeddings"
+  "${LAB_DATA}/showroom"
   "${LAB_DATA}/showroom/inbox"
+  "${LAB_DATA}/imagine"
   "${LAB_DATA}/imagine/runs"
+  "${LAB_DATA}/gym"
   "${LAB_DATA}/gym/results"
 )
 
 for d in "${SUBDIRS[@]}"; do
   if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "[dry-run] mkdir -p -m 0700 ${d}"
+    echo "[dry-run] chmod 0700 ${d}"
   else
     mkdir -p -m 0700 "$d"
+    # Mode only the known install skeleton dirs — do not walk/chmod user content.
+    chmod 0700 "$d" 2>/dev/null || true
   fi
 done
-# Force 0700 on entire lab tree (mkdir -p may leave intermediate dirs at umask).
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "[dry-run] chmod -R u=rwX,go= ${LAB_DATA}"
-else
-  if [[ -d "$LAB_DATA" ]]; then
-    find "$LAB_DATA" -type d -exec chmod 0700 {} + 2>/dev/null || true
-    find "$LAB_DATA" -type f -exec chmod 0600 {} + 2>/dev/null || true
-  fi
-fi
 
 # 2. Pin skills_version from packaging/VERSION (idempotent write)
 PIN_FILE="${LAB_DATA}/.skills_version"
@@ -116,7 +123,7 @@ else
   echo "  config:  keep existing ${LAB_CFG}"
 fi
 
-# 4. Symlink ~/.local/bin/lab -> bin/lab (idempotent; replace only if wrong link)
+# 4. Symlink LOCAL_BIN/lab -> bin/lab (idempotent; replace only if wrong link)
 if [[ ! -x "$LAB_BIN" && ! -f "$LAB_BIN" ]]; then
   echo "error: lab binary missing: ${LAB_BIN}" >&2
   exit 1

@@ -48,35 +48,34 @@ def ensure_lab_dirs() -> List[Path]:
     Create ~/.grok/lab and standard subdirs with mode 0o700.
     Idempotent. Returns list of paths ensured.
     Does not touch safety hooks or other ~/.grok content outside lab/.
+
+    Keep this list in sync with scripts/install-lab.sh SUBDIRS.
+    Only chmods known skeleton dirs (not arbitrary user files under lab/).
     """
     root = lab_data_root()
+    # Keep in sync with scripts/install-lab.sh SUBDIRS
     subdirs = [
         root,
         root / "experiments",
+        root / "metrics",
         root / "metrics" / "daily",
         root / "knowledge",
         root / "knowledge" / "embeddings",
+        root / "showroom",
         root / "showroom" / "inbox",
+        root / "imagine",
         root / "imagine" / "runs",
+        root / "gym",
         root / "gym" / "results",
     ]
     ensured: List[Path] = []
     for path in subdirs:
         path.mkdir(parents=True, mode=0o700, exist_ok=True)
+        try:
+            os.chmod(path, 0o700)
+        except OSError:
+            pass
         ensured.append(path)
-    # Force 0700 on whole tree (mkdir parents may use umask for intermediates).
-    if root.is_dir():
-        for dirpath, dirnames, filenames in os.walk(root):
-            try:
-                os.chmod(dirpath, 0o700)
-            except OSError:
-                pass
-            for name in filenames:
-                fpath = Path(dirpath) / name
-                try:
-                    os.chmod(fpath, 0o600)
-                except OSError:
-                    pass
     return ensured
 
 

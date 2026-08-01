@@ -3,10 +3,22 @@
 # PR1: doctor/status exec existing bins; dash opens HTML; install creates data dirs.
 set -euo pipefail
 
-# Resolve monorepo root from this script's location (works via symlink).
-_LAB_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve monorepo root from this script's real path (follows ~/.local/bin/lab symlink).
+# macOS lacks GNU readlink -f; walk the chain with readlink instead.
+_lab_src="${BASH_SOURCE[0]}"
+while [[ -L "$_lab_src" ]]; do
+  _lab_dir="$(cd "$(dirname "$_lab_src")" && pwd)"
+  _lab_link="$(readlink "$_lab_src")"
+  if [[ "$_lab_link" != /* ]]; then
+    _lab_src="${_lab_dir}/${_lab_link}"
+  else
+    _lab_src="$_lab_link"
+  fi
+done
+_LAB_BIN="$(cd "$(dirname "$_lab_src")" && pwd)"
 ROOT="$(cd "${_LAB_BIN}/.." && pwd)"
 export ROOT
+unset _lab_src _lab_dir _lab_link
 
 # shellcheck disable=SC1091
 if [[ -f "${ROOT}/lib/common.sh" ]]; then

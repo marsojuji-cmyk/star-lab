@@ -25,15 +25,24 @@ else
   RED="" GRN="" YLW="" CYN="" BLD="" DIM="" RST=""
 fi
 
-# ROOT = monorepo root (parent of lib/ when sourced from lib/common.sh).
-# Callers may set ROOT before sourcing; otherwise detect from BASH_SOURCE.
+# ROOT = monorepo root. Callers (bin/lab) should set ROOT after resolving
+# symlinks; if unset, detect from this file's real path (follows links).
 if [[ -z "${ROOT:-}" ]]; then
   _common_src="${BASH_SOURCE[0]:-}"
+  while [[ -n "$_common_src" && -L "$_common_src" ]]; do
+    _common_dir="$(cd "$(dirname "$_common_src")" && pwd)"
+    _common_link="$(readlink "$_common_src")"
+    if [[ "$_common_link" != /* ]]; then
+      _common_src="${_common_dir}/${_common_link}"
+    else
+      _common_src="$_common_link"
+    fi
+  done
   if [[ -n "$_common_src" && -f "$_common_src" ]]; then
     ROOT="$(cd "$(dirname "$_common_src")/.." && pwd)"
   else
     ROOT="$(cd "$(dirname "${0}")/.." && pwd)"
   fi
-  unset _common_src
+  unset _common_src _common_dir _common_link
 fi
 export ROOT
