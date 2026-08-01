@@ -38,6 +38,8 @@ Grok Star Lab  (lab)
   lab status               one-screen vitals (exec bin/status)
   lab install [args…]      create ~/.grok/lab, symlink, packaging pin
   lab dash                 open Mission Control dashboard
+  lab ship check|run|pr    Ship Bay local checks + optional inbox capture
+  lab showroom capture|list  Showroom inbox (capture only; no publish yet)
 
 Later modules (forge, gym, arena, …) land in subsequent PRs.
 Data root: ~/.grok/lab
@@ -84,6 +86,22 @@ case "$cmd" in
     else
       echo "Open: ${html}"
     fi
+    ;;
+  ship)
+    ship_cli="${ROOT}/modules/ship/cli.py"
+    if [[ ! -f "$ship_cli" ]]; then
+      echo "error: missing ${ship_cli}" >&2
+      exit 1
+    fi
+    exec python3 "$ship_cli" "$@"
+    ;;
+  showroom)
+    showroom_cli="${ROOT}/modules/showroom/cli.py"
+    if [[ ! -f "$showroom_cli" ]]; then
+      echo "error: missing ${showroom_cli}" >&2
+      exit 1
+    fi
+    exec python3 "$showroom_cli" "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2
