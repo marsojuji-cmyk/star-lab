@@ -1,0 +1,3 @@
+{"id": "s1", "prompt": "Reply with exactly: pong", "expect_contains": "pong", "max_tokens": 32}
+{"id": "s2", "prompt": "What is 2+2? Answer with one digit only.", "expect_contains": "4", "max_tokens": 16}
+{"id": "s3", "prompt": "Say hello in one short sentence.", "max_tokens": 64}

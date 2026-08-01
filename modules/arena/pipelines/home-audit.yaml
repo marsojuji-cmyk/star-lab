@@ -1,0 +1,7 @@
+# Session-tier multi-agent handoff — no headless Rhai in v1 (K19).
+name: home-audit
+kind: workflow
+description: Multi-agent Rhai probes (requires Grok session)
+workflow_src: packaging/workflows/lab-audit.rhai
+workflow_install_name: lab-audit
+forge: false

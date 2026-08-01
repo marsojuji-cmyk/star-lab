@@ -152,10 +152,39 @@ else
   fi
 fi
 
-# Explicit non-goals: never touch safety hooks
-# ~/.grok/hooks/safety-guard.json and scripts/safety_guard.py are left alone.
+# Explicit non-goals: never clobber safety-guard.json / safety_guard.py.
+# Token SessionStart hooks ARE installed (additive / overwrite only our token files).
+
+# 4. Token-aware SessionStart hooks (auto-activate lab tokens every session)
+HOOKS_SRC="${ROOT}/packaging/hooks"
+HOOKS_DST="${HOME}/.grok/hooks"
+if [[ -d "$HOOKS_SRC" ]]; then
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "  hooks: would install token-session-start + session_tokens_boot.sh"
+  else
+    mkdir -p "${HOOKS_DST}/scripts"
+    if [[ -f "${HOOKS_SRC}/token-session-start.json" ]]; then
+      cp "${HOOKS_SRC}/token-session-start.json" "${HOOKS_DST}/token-session-start.json"
+    fi
+    if [[ -f "${HOOKS_SRC}/session-banner.json" ]]; then
+      cp "${HOOKS_SRC}/session-banner.json" "${HOOKS_DST}/session-banner.json"
+    fi
+    if [[ -f "${HOOKS_SRC}/scripts/session_tokens_boot.sh" ]]; then
+      cp "${HOOKS_SRC}/scripts/session_tokens_boot.sh" "${HOOKS_DST}/scripts/session_tokens_boot.sh"
+      chmod +x "${HOOKS_DST}/scripts/session_tokens_boot.sh"
+    fi
+    # Skill for per-task routing
+    if [[ -f "${ROOT}/packaging/skills/token-route/SKILL.md" ]]; then
+      mkdir -p "${HOME}/.grok/skills/token-route"
+      cp "${ROOT}/packaging/skills/token-route/SKILL.md" "${HOME}/.grok/skills/token-route/SKILL.md"
+    fi
+    echo "  hooks: token SessionStart installed → ${HOOKS_DST}/token-session-start.json"
+  fi
+fi
 
 echo "Install complete."
 echo "  Try: lab help"
 echo "       lab doctor"
 echo "       lab status"
+echo "       lab tokens policy"
+echo "  Token policy auto-boots on every Grok SessionStart."

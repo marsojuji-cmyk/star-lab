@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# Grok Star Lab — unified CLI facade
-# PR1: doctor/status exec existing bins; dash opens HTML; install creates data dirs.
+# Grok Star Lab — unified CLI facade (main integration)
 set -euo pipefail
 
 # Resolve monorepo root from this script's real path (follows ~/.local/bin/lab symlink).
-# macOS lacks GNU readlink -f; walk the chain with readlink instead.
 _lab_src="${BASH_SOURCE[0]}"
 while [[ -L "$_lab_src" ]]; do
   _lab_dir="$(cd "$(dirname "$_lab_src")" && pwd)"
@@ -18,6 +16,7 @@ done
 _LAB_BIN="$(cd "$(dirname "$_lab_src")" && pwd)"
 ROOT="$(cd "${_LAB_BIN}/.." && pwd)"
 export ROOT
+export GROK_LAB_REPO="${GROK_LAB_REPO:-$ROOT}"
 unset _lab_src _lab_dir _lab_link
 
 # shellcheck disable=SC1091
@@ -29,6 +28,17 @@ else
   export PATH="${HOME}/.grok/bin:${HOME}/.local/bin:${HOME}/homebrew/bin:/usr/local/bin:${PATH}"
 fi
 
+_py() {
+  local rel="$1"
+  shift
+  local path="${ROOT}/${rel}"
+  if [[ ! -f "$path" ]]; then
+    echo "error: missing ${path}" >&2
+    exit 1
+  fi
+  exec python3 "$path" "$@"
+}
+
 usage() {
   cat << EOF
 Grok Star Lab  (lab)
@@ -36,16 +46,24 @@ Grok Star Lab  (lab)
   lab help                 this usage
   lab doctor [args…]       full health check (exec bin/doctor)
   lab status               one-screen vitals (exec bin/status)
-  lab install [args…]      create ~/.grok/lab, symlink, packaging pin
+  lab install [args…]      create ~/.grok/lab, symlink, packaging, token hooks
   lab dash                 snapshot + open Mission Control (file://)
   lab observatory …        snapshot | dash | report
   lab forge …              experiment tracking
-  lab design …             Design Studio
-  lab ship check|run|pr    Ship Bay
+  lab gym …                model gym (smoke|eval|list) — offline dolphin3
+  lab tokens …             token-aware control plane (route|audit|distill)
+  lab knowledge …          FTS knowledge index/query
+  lab arena …              offline script pipelines / workflow handoff
+  lab design …             Design Studio register/list
+  lab ship …               Ship Bay checks + capture
   lab showroom …           capture | list | publish | open
+  lab imagine …            offline asset verify
+  lab sandbox …            lab sandbox profiles
+  lab dock …               integration dock / MCP fallbacks
 
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
+Token policy: lab tokens policy  (auto-armed on SessionStart)
 EOF
 }
 
@@ -71,40 +89,46 @@ case "$cmd" in
       echo "error: missing ${install_sh}" >&2
       exit 1
     fi
-    # shellcheck disable=SC1090
     exec bash "$install_sh" "$@"
     ;;
   dash|dashboard)
-    # Snapshot writes data/status.json + dashboard/data-embed.js, then open file://.
-    export GROK_LAB_REPO="${ROOT}"
-    exec python3 "${ROOT}/modules/observatory/cli.py" dash "$@"
+    _py modules/observatory/cli.py dash "$@"
     ;;
   observatory)
-    export GROK_LAB_REPO="${ROOT}"
-    exec python3 "${ROOT}/modules/observatory/cli.py" "$@"
-    ;;
-  ship)
-    ship_cli="${ROOT}/modules/ship/cli.py"
-    if [[ ! -f "$ship_cli" ]]; then
-      echo "error: missing ${ship_cli}" >&2
-      exit 1
-    fi
-    exec python3 "$ship_cli" "$@"
-    ;;
-  showroom)
-    showroom_cli="${ROOT}/modules/showroom/cli.py"
-    if [[ ! -f "$showroom_cli" ]]; then
-      echo "error: missing ${showroom_cli}" >&2
-      exit 1
-    fi
-    export GROK_LAB_REPO="${ROOT}"
-    exec python3 "$showroom_cli" "$@"
+    _py modules/observatory/cli.py "$@"
     ;;
   forge)
-    exec python3 "${ROOT}/modules/forge/cli.py" "$@"
+    _py modules/forge/cli.py "$@"
+    ;;
+  gym)
+    _py modules/gym/cli.py "$@"
+    ;;
+  tokens|token)
+    _py modules/tokens/cli.py "$@"
+    ;;
+  knowledge)
+    _py modules/knowledge/cli.py "$@"
+    ;;
+  arena)
+    _py modules/arena/cli.py "$@"
     ;;
   design)
-    exec python3 "${ROOT}/modules/design/cli.py" "$@"
+    _py modules/design/cli.py "$@"
+    ;;
+  ship)
+    _py modules/ship/cli.py "$@"
+    ;;
+  showroom)
+    _py modules/showroom/cli.py "$@"
+    ;;
+  imagine)
+    _py modules/imagine/cli.py "$@"
+    ;;
+  sandbox)
+    _py modules/sandbox/cli.py "$@"
+    ;;
+  dock)
+    _py modules/dock/cli.py "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2

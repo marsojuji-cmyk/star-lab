@@ -56,8 +56,17 @@ lab dash
 | **Sandbox Range** | `lab sandbox` | Seatbelt lab-* profiles |
 | **Integration Dock** | `lab dock` | MCP probe + offline fallbacks |
 | **Showroom** | `lab showroom` | Inbox → publish → static gallery |
+| **Token Control Plane** | `lab tokens` | Horizon route local/short/medium/deep (auto SessionStart) |
 
-Mutable state: `~/.grok/lab/`. Proof: `docs/PROOF.txt`. Compare: `docs/COMPARE-WITH-CLAUDE.md`.
+```bash
+lab tokens policy
+lab tokens route "implement a feature with tests"
+lab gym smoke
+lab forge list
+lab showroom list
+```
+
+Mutable state: `~/.grok/lab/`. Proof: `docs/PROOF.txt`. Design: `docs/GROK-STAR-LAB-DESIGN.md`. Tokens: `docs/TOKEN-AWARE-CONTROL-PLANE.md`.
 
 ```bash
 # Module + safety regression (PR13)

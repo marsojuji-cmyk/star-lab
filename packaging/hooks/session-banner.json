@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -lc 'echo \"[grok-home] world stage online · token-policy=ACTIVE · lab tokens route before deep work\"'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

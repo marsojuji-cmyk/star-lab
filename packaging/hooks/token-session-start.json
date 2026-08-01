@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.grok/hooks/scripts/session_tokens_boot.sh\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

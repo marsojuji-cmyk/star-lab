@@ -1,0 +1,7 @@
+# Offline Agent Arena pipeline — pure local, zero Grok session (K16).
+name: lab-audit
+kind: script
+description: Module presence, safety, disk, ollama — pure local
+script: modules/arena/scripts/lab_audit.sh
+forge: true
+timeout_secs: 120

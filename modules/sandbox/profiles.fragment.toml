@@ -1,0 +1,24 @@
+# Grok Star Lab — curated Seatbelt profiles (fragment)
+# Installed by: lab sandbox install
+# Target:       ~/.grok/sandbox.toml  (GROK_HOME/sandbox.toml)
+# Policy:       merge **missing keys only** — never overwrite user values.
+#
+# Built-in bases: workspace | read-only | strict | devbox
+# macOS note: restrict_network is a no-op for child processes (Seatbelt);
+#             see modules/sandbox/README.md.
+
+# Everyday lab development — workspace base + secret-path denies.
+[profiles.lab-workspace]
+extends = "workspace"
+deny = ["**/.env", "**/*.pem", "**/*credentials*"]
+
+# Code review / exploration without writing project files.
+[profiles.lab-readonly-review]
+extends = "read-only"
+restrict_network = true
+
+# Untrusted / third-party code — strict FS + child network block (Linux).
+[profiles.lab-untrusted]
+extends = "strict"
+restrict_network = true
+deny = ["**/.env", "**/*.pem", "**/*credentials*", "**/*.key"]
