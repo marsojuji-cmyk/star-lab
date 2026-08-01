@@ -37,9 +37,11 @@ Grok Star Lab  (lab)
   lab doctor [args…]       full health check (exec bin/doctor)
   lab status               one-screen vitals (exec bin/status)
   lab install [args…]      create ~/.grok/lab, symlink, packaging pin
-  lab dash                 open Mission Control dashboard
+  lab dash                 snapshot + open Mission Control (file://)
+  lab observatory …        snapshot | dash | report
   lab ship check|run|pr    Ship Bay local checks + optional inbox capture
-  lab showroom capture|list  Showroom inbox (capture only; no publish yet)
+  lab showroom capture|list|publish|open  Showroom (PR9 full loop)
+  lab design …             Design studio
 
 Later modules (forge, gym, arena, …) land in subsequent PRs.
 Data root: ~/.grok/lab
@@ -73,19 +75,13 @@ case "$cmd" in
     exec bash "$install_sh" "$@"
     ;;
   dash|dashboard)
-    # PR1: open static dashboard. Full snapshot/embed lands in PR2.
-    html="${ROOT}/dashboard/index.html"
-    if [[ ! -f "$html" ]]; then
-      echo "error: dashboard missing: ${html}" >&2
-      exit 1
-    fi
-    if command -v open >/dev/null 2>&1; then
-      open "$html"
-    elif command -v xdg-open >/dev/null 2>&1; then
-      xdg-open "$html"
-    else
-      echo "Open: ${html}"
-    fi
+    # Snapshot writes data/status.json + dashboard/data-embed.js, then open file://.
+    export GROK_LAB_REPO="${ROOT}"
+    exec python3 "${ROOT}/modules/observatory/cli.py" dash "$@"
+    ;;
+  observatory)
+    export GROK_LAB_REPO="${ROOT}"
+    exec python3 "${ROOT}/modules/observatory/cli.py" "$@"
     ;;
   ship)
     ship_cli="${ROOT}/modules/ship/cli.py"
