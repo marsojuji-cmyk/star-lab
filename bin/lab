@@ -38,8 +38,8 @@ Grok Star Lab  (lab)
   lab status               one-screen vitals (exec bin/status)
   lab install [args…]      create ~/.grok/lab, symlink, packaging pin
   lab dash                 open Mission Control dashboard
+  lab forge …              experiment tracking (run|list|show|init|export)
 
-Later modules (forge, gym, arena, …) land in subsequent PRs.
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
 EOF
@@ -84,6 +84,9 @@ case "$cmd" in
     else
       echo "Open: ${html}"
     fi
+    ;;
+  forge)
+    exec python3 "${ROOT}/modules/forge/cli.py" "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2
