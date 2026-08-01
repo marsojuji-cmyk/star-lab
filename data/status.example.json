@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-31T12:00:00Z",
+  "host": "example-host",
+  "doctor": {
+    "pass": 40,
+    "warn": 0,
+    "fail": 0,
+    "operational": true,
+    "checks": [
+      {
+        "id": "cmd.rg",
+        "severity": "pass",
+        "label": "ripgrep  ripgrep 14.1.0",
+        "detail": ""
+      },
+      {
+        "id": "cfg.memory_enabled",
+        "severity": "pass",
+        "label": "memory enabled",
+        "detail": ""
+      },
+      {
+        "id": "safety.deny",
+        "severity": "pass",
+        "label": "blocks rm -rf /",
+        "detail": ""
+      }
+    ]
+  },
+  "modules": {
+    "forge": "off",
+    "gym": "off",
+    "arena": "off",
+    "design": "off",
+    "ship": "off",
+    "imagine": "off",
+    "knowledge": "off",
+    "observatory": "ok",
+    "sandbox": "off",
+    "dock": "off",
+    "showroom": "off"
+  },
+  "ollama_models": ["dolphin3:latest"],
+  "recent_experiments": [],
+  "showroom_count": 0,
+  "showroom_inbox_count": 0,
+  "disk_free_home": "1.6Ti",
+  "safety": {
+    "hook": true,
+    "deny_rules": true
+  },
+  "lab_skills_version": "0.1.0"
+}

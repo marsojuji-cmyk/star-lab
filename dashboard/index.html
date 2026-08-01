@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Grok Home · Mission Control</title>
+  <title>Grok Star Lab · Mission Control</title>
   <style>
     :root {
       --bg: #0a0e17;
@@ -119,6 +119,9 @@
     .k { color: var(--text); }
     .v { color: var(--muted); font-variant-numeric: tabular-nums; }
     .on { color: var(--green); font-weight: 600; }
+    .amber { color: var(--amber); font-weight: 600; }
+    .off-bad { color: var(--red); font-weight: 600; }
+    .muted { color: var(--muted); }
     .cmd {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 12.5px;
@@ -157,25 +160,48 @@
       width: 10px; height: 10px; border-radius: 50%;
       background: var(--green);
       box-shadow: 0 0 16px rgba(52,211,153,.8);
+      flex-shrink: 0;
     }
+    .dot.bad {
+      background: var(--red);
+      box-shadow: 0 0 16px rgba(248,113,113,.8);
+    }
+    .dot.amber-dot {
+      background: var(--amber);
+      box-shadow: 0 0 16px rgba(251,191,36,.8);
+    }
+    .banner {
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      color: var(--amber);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    .banner[hidden] { display: none; }
   </style>
 </head>
 <body>
   <div class="wrap">
+    <div id="status-banner" class="banner" hidden>
+      Run <code>lab dash</code> or <code>lab observatory snapshot</code> to load live status.
+    </div>
+
     <header>
       <div class="hero">
         <img src="../assets/hero.jpg" alt="Grok Home hero art" />
       </div>
       <div class="brand">
-        <p class="eyebrow">World Stage · Mission Control</p>
-        <h1>Grok Home is live.</h1>
+        <p class="eyebrow">Star Lab · Mission Control</p>
+        <h1>Grok Star Lab</h1>
         <p class="sub">
-          Memory, safety rails, project roots, CLI tooling, skills, and a doctor
-          that proves the house is in order — not a vibes-only setup.
+          Free offline core: doctor scores, observatory embed, and mission control
+          without a network fetch. Open via <code>lab dash</code>.
         </p>
         <div class="score">
-          <span class="dot"></span>
-          <span>Operational baseline · compare this to a chat-only install</span>
+          <span id="score-dot" class="dot amber-dot"></span>
+          <span id="score-label">Loading…</span>
         </div>
       </div>
     </header>
@@ -184,70 +210,78 @@
       <div class="card">
         <h2>Brain</h2>
         <ul>
-          <li><span class="k">Memory</span><span class="v on">enabled</span></li>
-          <li><span class="k">Home rules</span><span class="v on">~/.grok/rules/home.md</span></li>
-          <li><span class="k">Global MEMORY.md</span><span class="v on">written</span></li>
-          <li><span class="k">Two-pass compaction</span><span class="v on">on</span></li>
-          <li><span class="k">Codebase indexing</span><span class="v on">on</span></li>
-          <li><span class="k">LSP tools</span><span class="v on">on</span></li>
+          <li><span class="k">Memory</span><span id="v-memory" class="v">—</span></li>
+          <li><span class="k">Home rules</span><span id="v-rules" class="v">—</span></li>
+          <li><span class="k">Global MEMORY.md</span><span id="v-memory-md" class="v">—</span></li>
+          <li><span class="k">Two-pass compaction</span><span id="v-two-pass" class="v">—</span></li>
+          <li><span class="k">Codebase indexing</span><span id="v-indexing" class="v">—</span></li>
+          <li><span class="k">LSP tools</span><span id="v-lsp" class="v">—</span></li>
         </ul>
       </div>
 
       <div class="card">
         <h2>Hands</h2>
         <ul>
-          <li><span class="k">Permission mode</span><span class="v on">always-approve</span></li>
-          <li><span class="k">Deny rules</span><span class="v on">hard blocks</span></li>
-          <li><span class="k">Safety hook</span><span class="v on">catastrophic shell</span></li>
-          <li><span class="k">Respect gitignore</span><span class="v on">on</span></li>
-          <li><span class="k">Auto-update</span><span class="v on">on</span></li>
-          <li><span class="k">Theme</span><span class="v on">tokyonight</span></li>
+          <li><span class="k">Permission mode</span><span id="v-always" class="v">—</span></li>
+          <li><span class="k">Deny rules</span><span id="v-deny" class="v">—</span></li>
+          <li><span class="k">Safety hook</span><span id="v-hook" class="v">—</span></li>
+          <li><span class="k">Respect gitignore</span><span id="v-gitignore" class="v">—</span></li>
+          <li><span class="k">Auto-update</span><span id="v-autoupdate" class="v">—</span></li>
+          <li><span class="k">Theme</span><span id="v-theme" class="v">—</span></li>
         </ul>
       </div>
 
       <div class="card">
-        <h2>Terrain</h2>
+        <h2>Snapshot meta</h2>
         <ul>
-          <li><span class="k">Projects root</span><span class="v on">~/Projects</span></li>
-          <li><span class="k">Control plane</span><span class="v on">~/Projects/grok-home</span></li>
-          <li><span class="k">User Homebrew</span><span class="v on">~/homebrew</span></li>
-          <li><span class="k">Skills</span><span class="v on">session / ship / doctor / new</span></li>
-          <li><span class="k">MCP</span><span class="v on">GitHub · Notion · Google · Figma…</span></li>
-          <li><span class="k">Local models</span><span class="v on">Ollama</span></li>
+          <li><span class="k">Host</span><span id="meta-host" class="v">—</span></li>
+          <li><span class="k">Disk free</span><span id="meta-disk" class="v">—</span></li>
+          <li><span class="k">Skills version</span><span id="meta-skills" class="v">—</span></li>
+          <li><span class="k">Ollama models</span><span id="meta-ollama" class="v">—</span></li>
+          <li><span class="k">Showroom</span><span id="showroom-count" class="v">0</span></li>
+          <li><span class="k">Showroom inbox</span><span id="showroom-inbox" class="v">0</span></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Safety</h2>
+        <ul>
+          <li><span class="k">Hook</span><span id="safety-hook" class="v">—</span></li>
+          <li><span class="k">Deny rules</span><span id="safety-deny" class="v">—</span></li>
+        </ul>
+      </div>
+
+      <div class="card wide">
+        <h2>Modules</h2>
+        <ul id="module-list">
+          <li><span class="k">observatory</span><span class="v muted">off until snapshot</span></li>
         </ul>
       </div>
 
       <div class="card wide">
         <h2>Commands that prove it</h2>
-        <div class="cmd">~/Projects/grok-home/bin/status</div>
-        <div class="cmd">~/Projects/grok-home/bin/doctor</div>
-        <div class="cmd">~/Projects/grok-home/bin/launch new demo-app</div>
-        <div class="cmd">cd ~/Projects && grok</div>
+        <div class="cmd">lab status</div>
+        <div class="cmd">lab doctor</div>
+        <div class="cmd">lab doctor --json</div>
+        <div class="cmd">lab dash</div>
+        <div class="cmd">lab observatory snapshot</div>
         <div class="pillrow" style="margin-top:14px">
-          <span class="pill"><strong>/flush</strong> save rich session memory</span>
-          <span class="pill"><strong>/dream</strong> consolidate knowledge</span>
-          <span class="pill"><strong>/memory</strong> browse what sticks</span>
-          <span class="pill"><strong>/dashboard</strong> multi-agent control</span>
-          <span class="pill"><strong>/theme</strong> tokyonight already set</span>
+          <span class="pill"><strong>embed</strong> window.GROK_LAB_STATUS (no fetch)</span>
+          <span class="pill"><strong>file://</strong> works offline</span>
+          <span class="pill"><strong>doctor</strong> pass/warn/fail contract</span>
         </div>
-      </div>
-
-      <div class="card wide">
-        <h2>Why this is a 100× home, not a default install</h2>
-        <ul>
-          <li><span class="k">Durable identity</span><span class="v">rules + memory + project AGENTS.md</span></li>
-          <li><span class="k">Speed with guardrails</span><span class="v">always-approve + deny + hook</span></li>
-          <li><span class="k">Measurable health</span><span class="v">doctor scores pass/warn/fail</span></li>
-          <li><span class="k">Repeatable workflows</span><span class="v">skills for ship / scaffold / close</span></li>
-          <li><span class="k">Human-facing proof</span><span class="v">this dashboard + CLI + hero art</span></li>
-        </ul>
       </div>
     </section>
 
     <footer>
       Built on this machine by Grok Build for user <code>a100</code>.
-      Open this file anytime: <code>~/Projects/grok-home/dashboard/index.html</code>
+      Live data from <code>dashboard/data-embed.js</code> (generated). Schema sample:
+      <code>data/status.example.json</code>.
     </footer>
   </div>
+
+  <!-- Embed first (generated by snapshot). Missing file is ok; app.js shows banner. -->
+  <script src="data-embed.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

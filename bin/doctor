@@ -1,50 +1,76 @@
 #!/usr/bin/env bash
 # grok-home doctor — full system health for the Grok world stage
+# Human mode (default) unchanged in format. --json emits schema_version + checks[].
 set -euo pipefail
 
 # shellcheck disable=SC1091
 [[ -x "$HOME/homebrew/bin/brew" ]] && eval "$("$HOME/homebrew/bin/brew" shellenv)" 2>/dev/null || true
 export PATH="$HOME/.grok/bin:$HOME/.local/bin:$HOME/homebrew/bin:/usr/local/bin:$PATH"
 
-RED=$'\033[31m'; GRN=$'\033[32m'; YLW=$'\033[33m'; CYN=$'\033[36m'; BLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+# Resolve repo root from this script (lab facade passes real bin/doctor path).
+_DOC_SRC="${BASH_SOURCE[0]}"
+while [[ -L "$_DOC_SRC" ]]; do
+  _DOC_DIR="$(cd "$(dirname "$_DOC_SRC")" && pwd)"
+  _DOC_LINK="$(readlink "$_DOC_SRC")"
+  if [[ "$_DOC_LINK" != /* ]]; then
+    _DOC_SRC="${_DOC_DIR}/${_DOC_LINK}"
+  else
+    _DOC_SRC="$_DOC_LINK"
+  fi
+done
+_DOC_BIN="$(cd "$(dirname "$_DOC_SRC")" && pwd)"
+ROOT="$(cd "${_DOC_BIN}/.." && pwd)"
+export ROOT
+unset _DOC_SRC _DOC_DIR _DOC_LINK
+
+# Parse flags (unknown flags ignored — additive; historical doctor ignored all args).
+DOCTOR_JSON=0
+for _arg in "$@"; do
+  case "$_arg" in
+    --json) DOCTOR_JSON=1 ;;
+    -h|--help)
+      cat <<'EOF'
+grok-home doctor — full system health
+
+  doctor           human pass/warn/fail report (default)
+  doctor --json    versioned JSON (schema_version + checks[])
+EOF
+      exit 0
+      ;;
+  esac
+done
+unset _arg
+export DOCTOR_JSON
+
+# Colors for human mode (always set; empty strings when JSON or non-TTY without force).
+if [[ "$DOCTOR_JSON" == "1" ]]; then
+  RED="" GRN="" YLW="" CYN="" BLD="" DIM="" RST=""
+elif [[ -t 1 ]] || [[ -n "${GROK_LAB_FORCE_COLOR:-}" ]]; then
+  RED=$'\033[31m'; GRN=$'\033[32m'; YLW=$'\033[33m'; CYN=$'\033[36m'; BLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+else
+  RED="" GRN="" YLW="" CYN="" BLD="" DIM="" RST=""
+fi
+export RED GRN YLW CYN BLD DIM RST
+
 pass=0; warn=0; fail=0
 
-ok()   { echo "  ${GRN}✓${RST} $*"; pass=$((pass+1)); }
-warn() { echo "  ${YLW}!${RST} $*"; warn=$((warn+1)); }
-bad()  { echo "  ${RED}✗${RST} $*"; fail=$((fail+1)); }
-hdr()  { echo; echo "${BLD}${CYN}▸ $*${RST}"; }
+DOCTOR_TSV=""
+if [[ "$DOCTOR_JSON" == "1" ]]; then
+  DOCTOR_TSV="$(mktemp "${TMPDIR:-/tmp}/doctor-checks.XXXXXX")"
+  # shellcheck disable=SC2064
+  trap 'rm -f "${DOCTOR_TSV}"' EXIT
+fi
+export DOCTOR_TSV
 
-need_cmd() {
-  local c="$1" label="${2:-$1}"
-  if command -v "$c" >/dev/null 2>&1; then
-    local v
-    v=$("$c" --version 2>/dev/null | head -1 | tr -d '\r' || echo "present")
-    ok "$label  ${DIM}$v${RST}"
-  else
-    bad "$label missing"
-  fi
-}
+# shellcheck source=../lib/checks.sh
+source "${ROOT}/lib/checks.sh"
 
-need_file() {
-  local f="$1" label="${2:-$1}"
-  if [[ -e "$f" ]]; then ok "$label"; else bad "$label missing ($f)"; fi
-}
-
-need_toml_key() {
-  local key="$1" file="$HOME/.grok/config.toml"
-  if grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null; then
-    local line
-    line=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" | head -1)
-    ok "$key  ${DIM}$line${RST}"
-  else
-    warn "$key not set in config.toml"
-  fi
-}
-
-echo "${BLD}╔══════════════════════════════════════════════╗${RST}"
-echo "${BLD}║         GROK HOME · DOCTOR · $(date +%Y-%m-%d)       ║${RST}"
-echo "${BLD}╚══════════════════════════════════════════════╝${RST}"
-echo "${DIM}host: $(hostname -s) · user: $(whoami) · arch: $(uname -m) · os: $(sw_vers -productVersion 2>/dev/null || uname -s)${RST}"
+if [[ "$DOCTOR_JSON" != "1" ]]; then
+  echo "${BLD}╔══════════════════════════════════════════════╗${RST}"
+  echo "${BLD}║         GROK HOME · DOCTOR · $(date +%Y-%m-%d)       ║${RST}"
+  echo "${BLD}╚══════════════════════════════════════════════╝${RST}"
+  echo "${DIM}host: $(hostname -s) · user: $(whoami) · arch: $(uname -m) · os: $(sw_vers -productVersion 2>/dev/null || uname -s)${RST}"
+fi
 
 hdr "Core toolchain"
 need_cmd git Git
@@ -58,8 +84,10 @@ need_cmd fd fd
 need_cmd fzf fzf
 need_cmd gh "GitHub CLI"
 if command -v wget >/dev/null 2>&1; then
+  CHECK_ID="cmd.wget"
   ok "wget  ${DIM}$(wget --version 2>/dev/null | head -1)${RST}"
 else
+  CHECK_ID="cmd.wget"
   warn "wget missing (optional; curl is present) — brew may still be compiling it"
 fi
 need_cmd ollama Ollama
@@ -82,52 +110,76 @@ need_file "$HOME/.grok/skills/home-doctor/SKILL.md" "home-doctor skill"
 hdr "Grok config signals"
 need_toml_key "enabled"          # memory (first match may be elsewhere — best effort)
 if grep -q '\[memory\]' "$HOME/.grok/config.toml" && grep -q 'enabled = true' "$HOME/.grok/config.toml"; then
+  CHECK_ID="cfg.memory_enabled"
   ok "memory enabled"
 else
+  CHECK_ID="cfg.memory_enabled"
   bad "memory not enabled"
 fi
 if grep -q 'permission_mode = "always-approve"' "$HOME/.grok/config.toml"; then
+  CHECK_ID="cfg.always_approve"
   ok "always-approve mode"
 else
+  CHECK_ID="cfg.always_approve"
   warn "permission_mode not always-approve"
 fi
-if grep -q 'lsp_tools = true' "$HOME/.grok/config.toml"; then ok "lsp_tools on"; else warn "lsp_tools off"; fi
-if grep -q 'two_pass_compaction = true' "$HOME/.grok/config.toml"; then ok "two_pass_compaction on"; else warn "two_pass_compaction off"; fi
-if grep -q 'codebase_indexing = true' "$HOME/.grok/config.toml"; then ok "codebase_indexing on"; else warn "codebase_indexing off"; fi
-if grep -q 'respect_gitignore = true' "$HOME/.grok/config.toml"; then ok "respect_gitignore on"; else warn "respect_gitignore off"; fi
-if grep -q 'auto_update = true' "$HOME/.grok/config.toml"; then ok "auto_update on"; else warn "auto_update off"; fi
-if grep -q 'theme = "tokyonight"' "$HOME/.grok/config.toml"; then ok "theme tokyonight"; else warn "theme not tokyonight"; fi
+if grep -q 'lsp_tools = true' "$HOME/.grok/config.toml"; then CHECK_ID="cfg.lsp_tools"; ok "lsp_tools on"; else CHECK_ID="cfg.lsp_tools"; warn "lsp_tools off"; fi
+if grep -q 'two_pass_compaction = true' "$HOME/.grok/config.toml"; then CHECK_ID="cfg.two_pass_compaction"; ok "two_pass_compaction on"; else CHECK_ID="cfg.two_pass_compaction"; warn "two_pass_compaction off"; fi
+if grep -q 'codebase_indexing = true' "$HOME/.grok/config.toml"; then CHECK_ID="cfg.codebase_indexing"; ok "codebase_indexing on"; else CHECK_ID="cfg.codebase_indexing"; warn "codebase_indexing off"; fi
+if grep -q 'respect_gitignore = true' "$HOME/.grok/config.toml"; then CHECK_ID="cfg.respect_gitignore"; ok "respect_gitignore on"; else CHECK_ID="cfg.respect_gitignore"; warn "respect_gitignore off"; fi
+if grep -q 'auto_update = true' "$HOME/.grok/config.toml"; then CHECK_ID="cfg.auto_update"; ok "auto_update on"; else CHECK_ID="cfg.auto_update"; warn "auto_update off"; fi
+if grep -q 'theme = "tokyonight"' "$HOME/.grok/config.toml"; then CHECK_ID="cfg.theme"; ok "theme tokyonight"; else CHECK_ID="cfg.theme"; warn "theme not tokyonight"; fi
 if grep -q '\[permission\]' "$HOME/.grok/config.toml" && grep -q 'deny' "$HOME/.grok/config.toml"; then
+  CHECK_ID="cfg.deny_rules"
   ok "permission deny rules present"
 else
+  CHECK_ID="cfg.deny_rules"
   warn "no permission deny rules"
 fi
 
 hdr "Safety hook smoke test"
 if python3 "$HOME/.grok/hooks/scripts/safety_guard.py" <<<'{"command":"echo hello"}' | grep -q allow; then
+  CHECK_ID="safety.allow"
   ok "allows safe command"
 else
+  CHECK_ID="safety.allow"
   bad "safety hook failed allow path"
 fi
 if python3 "$HOME/.grok/hooks/scripts/safety_guard.py" <<<'{"command":"rm -rf /"}' | grep -q deny; then
+  CHECK_ID="safety.deny"
   ok "blocks rm -rf /"
 else
+  CHECK_ID="safety.deny"
   bad "safety hook failed deny path"
 fi
 
 hdr "Runtime"
 if command -v grok >/dev/null 2>&1; then
+  CHECK_ID="runtime.grok_version"
   ok "grok version: $(grok --version 2>/dev/null | head -1 || echo unknown)"
 fi
 if command -v ollama >/dev/null 2>&1; then
   if ollama list 2>/dev/null | tail -n +2 | grep -q .; then
+    CHECK_ID="runtime.ollama_models"
     ok "ollama models: $(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ' ')"
   else
+    CHECK_ID="runtime.ollama_models"
     warn "ollama has no models listed"
   fi
 fi
 free=$(df -h "$HOME" 2>/dev/null | awk 'NR==2{print $4}')
+CHECK_ID="runtime.disk_free"
 ok "disk free (home vol): ${free:-unknown}"
+
+if [[ "$DOCTOR_JSON" == "1" ]]; then
+  # Pure JSON on stdout; exit 1 if fail>0 (same contract as human mode).
+  python3 "${ROOT}/lib/doctor_json.py" emit \
+    --pass "$pass" --warn "$warn" --fail "$fail" --tsv "$DOCTOR_TSV"
+  if [[ "$fail" -gt 0 ]]; then
+    exit 1
+  fi
+  exit 0
+fi
 
 hdr "Score"
 total=$((pass + warn + fail))
