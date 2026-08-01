@@ -53,3 +53,14 @@ latency, human interruptions, SQC pass rates, token audit MAE.
 | Loop 3 quality | SQC gate on distill |
 | Loop 4 measure | `lab research kpi` + portal board |
 | Token-aware policy | still `lab tokens route` |
+
+## Volume seed (judgment run)
+
+As of the trusted-judgment batch on **starlab-demo**:
+
+- ~26 golden `lab research` completions
+- Token audits n≈40+
+- SQC gate active; distill returns rules only when last loop accepts
+- KPI board: `portal/kpi.html`
+
+Repeat: `bash scripts/golden-batch-starlab.sh`
