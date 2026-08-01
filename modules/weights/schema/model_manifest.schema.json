@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://grok-home.local/schemas/model_manifest/v1.json",
+  "$id": "https://grok-home.local/schemas/model_manifest/v1.1.json",
   "title": "Star Lab Model Manifest",
-  "description": "Versioning metadata for a published model package. Weights live in safetensors files; this manifest is the cross-runtime contract.",
+  "description": "Versioning metadata for a published model package. Weights live in safetensors files; this manifest is the cross-runtime contract. v1.1 adds tokenizer_hash/mode and embedding_remap.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,9 +19,8 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "description": "Manifest schema version (semver). Separate from model version.",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-      "const": "1.0.0"
+      "description": "Manifest schema version (semver). Separate from model version. 1.0.0 readable; 1.1.0 preferred.",
+      "enum": ["1.0.0", "1.1.0"]
     },
     "model_id": {
       "type": "string",
@@ -71,11 +70,27 @@
       "type": ["string", "null"]
     },
     "tokenizer_version": {
-      "type": ["string", "null"]
+      "type": ["string", "null"],
+      "description": "Exact tokenizer package version (tokenizer-major rule)"
+    },
+    "tokenizer_hash": {
+      "type": ["string", "null"],
+      "pattern": "^([a-f0-9]{64})?$",
+      "description": "Required when tokenizer_id is set — exact revision seal"
     },
     "tokenizer_uri": {
       "type": ["string", "null"],
       "description": "Relative path to tokenizer bundle inside package"
+    },
+    "tokenizer_mode": {
+      "type": ["string", "null"],
+      "enum": ["frozen", "append_only", "dynamic", null],
+      "description": "Mirror of tokenizer package mode; freeze by default"
+    },
+    "embedding_remap": {
+      "type": ["string", "null"],
+      "enum": ["none", "retrained", "required_unmet", null],
+      "description": "none=same vocab; retrained=embeddings updated for new tokenizer; required_unmet=incompatible"
     },
     "data_version": {
       "type": ["string", "null"],

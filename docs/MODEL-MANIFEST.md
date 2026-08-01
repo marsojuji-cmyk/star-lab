@@ -1,7 +1,7 @@
 # Model manifest + schema (versioning metadata)
 
 **Status:** Lab rule (v1)  
-**Schema:** `modules/weights/schema/model_manifest.schema.json` (`schema_version: 1.0.0`)  
+**Schema:** `modules/weights/schema/model_manifest.schema.json` (`schema_version: 1.1.0`; accepts `1.0.0`)  
 **File:** `manifest.json` inside each model package  
 **CLI:** `lab weights manifest …`
 
@@ -38,7 +38,13 @@ Cross-platform loaders (PyTorch, MLX, serve stacks) read the same manifest; only
 
 ## Strongly recommended
 
-`parent_version`, `framework_version`, `tokenizer_id` + `tokenizer_version`, `tokenizer_uri`, `data_version`, `code_commit`, `env_hash`, `body_id`, `metrics`, `license`, `compatibility` (device, memory_mb_min, quantization, runtimes, notes).
+`parent_version`, `framework_version`, `data_version`, `code_commit`, `env_hash`, `body_id`, `metrics`, `license`, `compatibility` (device, memory_mb_min, quantization, runtimes, notes).
+
+### Tokenizer binding (when used)
+
+Set **together**: `tokenizer_id`, `tokenizer_version`, **`tokenizer_hash`**, `tokenizer_uri`, `tokenizer_mode`, `embedding_remap`.
+
+See **`docs/TOKENIZER-VERSIONING.md`** — tokenizer-major rule, freeze-by-default.
 
 ---
 
@@ -83,7 +89,9 @@ Release blockers:
 - Missing required fields  
 - Hash mismatch  
 - Non-safetensors weights format  
-- `tokenizer_id` without `tokenizer_version` (or reverse)
+- `tokenizer_id` without `tokenizer_version` / **`tokenizer_hash`**  
+- Tokenizer hash mismatch vs package  
+- `embedding_remap=required_unmet`
 
 Optional: `pip install jsonschema` for full Draft 2020-12 checks; builtin required-field checks always run.
 

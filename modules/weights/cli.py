@@ -26,6 +26,18 @@ from weights.manifest import (
     version_bump_note,
     save_manifest,
 )
+from weights.tokenizer_manifest import (
+    SCHEMA_VERSION as TOK_SCHEMA_VERSION,
+    SCHEMA_PATH as TOK_SCHEMA_PATH,
+    init_tokenizer_manifest,
+    seal_tokenizer_manifest,
+    load_tokenizer_manifest,
+    validate_tokenizer_manifest,
+    freeze_tokenizer,
+    bump_tokenizer,
+    bind_tokenizer_to_model_manifest,
+    assert_tokenizer_compatible,
+)
 
 
 def cmd_layout(_args: argparse.Namespace) -> int:
@@ -34,7 +46,8 @@ def cmd_layout(_args: argparse.Namespace) -> int:
     print("Rule: train anywhere → publish safetensors + manifest.json → load via adapters.")
     print(f"Manifest schema_version: {SCHEMA_VERSION}")
     print(f"Schema file: {SCHEMA_PATH}")
-    print("Doc:  docs/SAFETENSORS-STANDARD.md  docs/MODEL-MANIFEST.md")
+    print("Doc:  docs/SAFETENSORS-STANDARD.md  docs/MODEL-MANIFEST.md  docs/TOKENIZER-VERSIONING.md")
+    print(f"Tokenizer manifest schema: {TOK_SCHEMA_VERSION}")
     return 0
 
 
@@ -131,10 +144,129 @@ def cmd_metadata(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tokenizer(args: argparse.Namespace) -> int:
+    sub = args.tokenizer_cmd
+    if sub == "schema":
+        print(TOK_SCHEMA_PATH.read_text(encoding="utf-8"))
+        return 0
+    if sub == "init":
+        m = init_tokenizer_manifest(
+            Path(args.path),
+            tokenizer_id=args.tokenizer_id,
+            version=args.version,
+            tokenizer_mode=args.mode,
+            parent_version=args.parent_version,
+            seal=args.seal,
+            base_vocab_size=args.vocab_size,
+        )
+        if args.json:
+            print(json.dumps(m, indent=2))
+        else:
+            print(f"weights: tokenizer manifest → {Path(args.path) / 'tokenizer_manifest.json'}")
+            print(
+                f"  id={m['tokenizer_id']} version={m['version']} mode={m['tokenizer_mode']} "
+                f"hash={m['tokenizer_hash'][:16]}…"
+            )
+            if m["tokenizer_hash"] == "0" * 64:
+                print("  next: lab weights tokenizer seal " + args.path)
+        return 0
+    if sub == "seal":
+        try:
+            m = seal_tokenizer_manifest(Path(args.path))
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        print(
+            json.dumps(m, indent=2)
+            if args.json
+            else f"weights: tokenizer sealed hash={m['tokenizer_hash']}"
+        )
+        return 0
+    if sub == "validate":
+        path = Path(args.path)
+        try:
+            m = load_tokenizer_manifest(path)
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        pkg = path if path.is_dir() else path.parent
+        r = validate_tokenizer_manifest(
+            m, package_dir=pkg, check_hash=True, allow_dynamic=args.allow_dynamic
+        )
+        if args.json:
+            print(json.dumps(r, indent=2))
+        else:
+            print(f"weights: tokenizer ok={r['ok']} mode={r.get('tokenizer_mode')} hash_ok={r.get('hash_ok')}")
+            for i in r.get("issues") or []:
+                print(f"  issue: {i}")
+        return 0 if r.get("ok") else 1
+    if sub == "bump":
+        try:
+            m = bump_tokenizer(
+                Path(args.path),
+                args.part,
+                force=args.force,
+                notes=args.notes or "",
+            )
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        print(
+            json.dumps(m, indent=2)
+            if args.json
+            else f"weights: tokenizer version → {m['version']} (parent={m.get('parent_version')})"
+        )
+        return 0
+    if sub == "freeze":
+        m = freeze_tokenizer(Path(args.path))
+        print(json.dumps(m, indent=2) if args.json else f"weights: tokenizer mode=frozen id={m['tokenizer_id']}")
+        return 0
+    if sub == "show":
+        print(json.dumps(load_tokenizer_manifest(Path(args.path)), indent=2))
+        return 0
+    print("error: tokenizer init|seal|validate|bump|freeze|show|schema", file=sys.stderr)
+    return 2
+
+
 def cmd_manifest(args: argparse.Namespace) -> int:
     sub = args.manifest_cmd
     if sub == "schema":
         print(SCHEMA_PATH.read_text(encoding="utf-8"))
+        return 0
+    if sub == "bind-tokenizer":
+        model_dir = Path(args.path)
+        tok_dir = Path(args.tokenizer)
+        try:
+            mm = load_manifest(model_dir)
+            tm = load_tokenizer_manifest(tok_dir)
+        except Exception as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        tv = validate_tokenizer_manifest(tm, package_dir=tok_dir, check_hash=True)
+        if not tv.get("ok"):
+            print("error: tokenizer package invalid:", file=sys.stderr)
+            for i in tv.get("issues") or []:
+                print(f"  {i}", file=sys.stderr)
+            return 1
+        mm = bind_tokenizer_to_model_manifest(
+            mm,
+            tm,
+            tokenizer_uri=args.uri,
+            embedding_remap=args.embedding_remap,
+        )
+        save_manifest(model_dir, mm)
+        comp = assert_tokenizer_compatible(mm, tm)
+        if args.json:
+            print(json.dumps({"manifest": mm, "compatible": comp}, indent=2))
+        else:
+            print(
+                f"weights: bound tokenizer {tm['tokenizer_id']}@{tm['version']} "
+                f"hash={tm['tokenizer_hash'][:16]}… remap={args.embedding_remap}"
+            )
+            if not comp.get("ok"):
+                for i in comp.get("issues") or []:
+                    print(f"  issue: {i}")
+                return 1
         return 0
     if sub == "init":
         m = init_manifest(
@@ -294,6 +426,75 @@ def main(argv=None) -> int:
 
     mf_sc = mf_sub.add_parser("schema", help="Print JSON Schema")
     mf_sc.set_defaults(func=cmd_manifest, manifest_cmd="schema")
+
+    # bind tokenizer into model manifest
+    mf_b2 = mf_sub.add_parser(
+        "bind-tokenizer",
+        help="Copy sealed tokenizer id/version/hash into model manifest",
+    )
+    mf_b2.add_argument("path", help="Model package directory")
+    mf_b2.add_argument(
+        "--tokenizer",
+        required=True,
+        help="Tokenizer package directory (with tokenizer_manifest.json)",
+    )
+    mf_b2.add_argument("--uri", default="tokenizer", help="tokenizer_uri inside model package")
+    mf_b2.add_argument(
+        "--embedding-remap",
+        default="none",
+        choices=["none", "retrained", "required_unmet"],
+    )
+    mf_b2.add_argument("--json", action="store_true")
+    mf_b2.set_defaults(func=cmd_manifest, manifest_cmd="bind-tokenizer")
+
+    tk = sub.add_parser("tokenizer", help="Tokenizer artifact versioning (tokenizer-major rule)")
+    tk_sub = tk.add_subparsers(dest="tokenizer_cmd", required=True)
+
+    tk_i = tk_sub.add_parser("init", help="Create tokenizer_manifest.json (default mode=frozen)")
+    tk_i.add_argument("path", help="Tokenizer package directory")
+    tk_i.add_argument("--tokenizer-id", required=True)
+    tk_i.add_argument("--version", default="1.0.0")
+    tk_i.add_argument(
+        "--mode",
+        default="frozen",
+        choices=["frozen", "append_only", "dynamic"],
+    )
+    tk_i.add_argument("--parent-version", default=None)
+    tk_i.add_argument("--vocab-size", type=int, default=None)
+    tk_i.add_argument("--seal", action="store_true")
+    tk_i.add_argument("--json", action="store_true")
+    tk_i.set_defaults(func=cmd_tokenizer, tokenizer_cmd="init")
+
+    tk_s = tk_sub.add_parser("seal", help="Recompute tokenizer_hash")
+    tk_s.add_argument("path")
+    tk_s.add_argument("--json", action="store_true")
+    tk_s.set_defaults(func=cmd_tokenizer, tokenizer_cmd="seal")
+
+    tk_v = tk_sub.add_parser("validate", help="Validate tokenizer package")
+    tk_v.add_argument("path")
+    tk_v.add_argument("--allow-dynamic", action="store_true")
+    tk_v.add_argument("--json", action="store_true")
+    tk_v.set_defaults(func=cmd_tokenizer, tokenizer_cmd="validate")
+
+    tk_b = tk_sub.add_parser("bump", help="Semver bump (content change → major)")
+    tk_b.add_argument("path")
+    tk_b.add_argument("--part", choices=["major", "minor", "patch"], default="major")
+    tk_b.add_argument("--force", action="store_true")
+    tk_b.add_argument("--notes", default="")
+    tk_b.add_argument("--json", action="store_true")
+    tk_b.set_defaults(func=cmd_tokenizer, tokenizer_cmd="bump")
+
+    tk_f = tk_sub.add_parser("freeze", help="Set tokenizer_mode=frozen")
+    tk_f.add_argument("path")
+    tk_f.add_argument("--json", action="store_true")
+    tk_f.set_defaults(func=cmd_tokenizer, tokenizer_cmd="freeze")
+
+    tk_sh = tk_sub.add_parser("show", help="Print tokenizer_manifest.json")
+    tk_sh.add_argument("path")
+    tk_sh.set_defaults(func=cmd_tokenizer, tokenizer_cmd="show")
+
+    tk_sc = tk_sub.add_parser("schema", help="Print tokenizer JSON Schema")
+    tk_sc.set_defaults(func=cmd_tokenizer, tokenizer_cmd="schema")
 
     args = p.parse_args(argv)
     return int(args.func(args))

@@ -15,7 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
+# Accept prior schema for read/validate of old packages
+SCHEMA_VERSIONS_ACCEPTED = {"1.0.0", "1.1.0"}
 MANIFEST_NAME = "manifest.json"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "model_manifest.schema.json"
 
@@ -139,7 +141,10 @@ def default_manifest(
         "weights_sha256": weights_sha256,
         "tokenizer_id": extra.pop("tokenizer_id", None),
         "tokenizer_version": extra.pop("tokenizer_version", None),
+        "tokenizer_hash": extra.pop("tokenizer_hash", None),
         "tokenizer_uri": extra.pop("tokenizer_uri", None),
+        "tokenizer_mode": extra.pop("tokenizer_mode", None),
+        "embedding_remap": extra.pop("embedding_remap", "none"),
         "data_version": extra.pop("data_version", None),
         "code_commit": extra.pop("code_commit", None),
         "env_hash": extra.pop("env_hash", None),
@@ -178,9 +183,10 @@ def _validate_builtin(manifest: Dict[str, Any]) -> List[str]:
             if manifest[f] in ("", None) and f != "weights_sha256":
                 issues.append(f"empty required field: {f}")
 
-    if manifest.get("schema_version") != SCHEMA_VERSION:
+    sv = manifest.get("schema_version")
+    if sv not in SCHEMA_VERSIONS_ACCEPTED:
         issues.append(
-            f"schema_version must be {SCHEMA_VERSION}, got {manifest.get('schema_version')}"
+            f"schema_version must be one of {sorted(SCHEMA_VERSIONS_ACCEPTED)}, got {sv}"
         )
 
     v = manifest.get("version")
@@ -252,16 +258,73 @@ def validate_manifest(
             issues.append(str(e))
             hash_ok = False
 
-    # tokenizer pair consistency: if one of id/version set, warn only via issues optional
-    tid, tver = manifest.get("tokenizer_id"), manifest.get("tokenizer_version")
-    if (tid and not tver) or (tver and not tid):
-        issues.append("tokenizer_id and tokenizer_version should be set together")
+    # tokenizer-major rule: id/version/hash must travel together
+    tid = manifest.get("tokenizer_id")
+    tver = manifest.get("tokenizer_version")
+    thash = manifest.get("tokenizer_hash")
+    if tid or tver or thash:
+        if not tid:
+            issues.append("tokenizer_id required when tokenizer fields are set")
+        if not tver:
+            issues.append("tokenizer_version required when tokenizer_id is set")
+        if not thash or thash == "0" * 64:
+            issues.append(
+                "tokenizer_hash required when tokenizer_id is set "
+                "(bind sealed tokenizer package)"
+            )
+        elif thash and not SHA256_RE.match(str(thash)):
+            issues.append("tokenizer_hash must be 64 lowercase hex chars")
+    tmode = manifest.get("tokenizer_mode")
+    if tmode and tmode not in ("frozen", "append_only", "dynamic"):
+        issues.append(f"invalid tokenizer_mode: {tmode}")
+    if tmode == "dynamic":
+        issues.append("model bound to dynamic tokenizer — discouraged for eval/repro")
+    remap = manifest.get("embedding_remap") or "none"
+    if remap not in ("none", "retrained", "required_unmet"):
+        issues.append(f"invalid embedding_remap: {remap}")
+    if remap == "required_unmet":
+        issues.append(
+            "embedding_remap=required_unmet: incompatible until retrain/retrofit"
+        )
+
+    # optional: verify tokenizer package if uri present under package_dir
+    tok_ok = None
+    if package_dir and tid and manifest.get("tokenizer_uri"):
+        tok_dir = Path(package_dir) / str(manifest["tokenizer_uri"])
+        tman_path = tok_dir / "tokenizer_manifest.json"
+        if tman_path.is_file():
+            try:
+                from .tokenizer_manifest import (
+                    load_tokenizer_manifest,
+                    assert_tokenizer_compatible,
+                    validate_tokenizer_manifest,
+                )
+
+                tm = load_tokenizer_manifest(tok_dir)
+                tv = validate_tokenizer_manifest(tm, package_dir=tok_dir, check_hash=True)
+                if not tv.get("ok"):
+                    for i in tv.get("issues") or []:
+                        if "discouraged" not in i:
+                            issues.append(f"tokenizer package: {i}")
+                comp = assert_tokenizer_compatible(manifest, tm)
+                if not comp.get("ok"):
+                    issues.extend(comp.get("issues") or [])
+                tok_ok = comp.get("ok") and tv.get("ok")
+            except Exception as e:
+                issues.append(f"tokenizer package check failed: {e}")
+                tok_ok = False
+        else:
+            issues.append(
+                f"tokenizer_uri present but no tokenizer_manifest.json under {tok_dir}"
+            )
+            tok_ok = False
 
     return {
         "ok": len(issues) == 0,
         "issues": issues,
         "schema_engine": "jsonschema" if schema_ok else "builtin",
         "hash_ok": hash_ok,
+        "tokenizer_ok": tok_ok,
         "schema_version": SCHEMA_VERSION,
         "model_id": manifest.get("model_id"),
         "version": manifest.get("version"),

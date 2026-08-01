@@ -42,7 +42,10 @@ model_package/
   manifest.json         # REQUIRED for publish: versioning metadata (JSON Schema)
 ```
 
-See also: **`docs/MODEL-MANIFEST.md`** — schema fields, semver rules, hash policy.
+See also:
+
+- **`docs/MODEL-MANIFEST.md`** — model schema fields, semver, weight hash policy  
+- **`docs/TOKENIZER-VERSIONING.md`** — tokenizer-major rule, freeze-by-default
 
 ### Separation of concerns
 

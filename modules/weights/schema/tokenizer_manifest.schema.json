@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grok-home.local/schemas/tokenizer_manifest/v1.json",
+  "title": "Star Lab Tokenizer Manifest",
+  "description": "Versioned tokenizer artifact. Vocabulary/merge/special-token changes that alter tokenization are major bumps; freeze by default.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tokenizer_id",
+    "version",
+    "tokenizer_hash",
+    "base_vocab_size",
+    "tokenizer_mode",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Tokenizer manifest schema version (independent of tokenizer version)"
+    },
+    "tokenizer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([+-][0-9A-Za-z.-]+)?$"
+    },
+    "parent_version": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([+-][0-9A-Za-z.-]+)?$"
+    },
+    "tokenizer_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of canonical tokenizer content (sorted file hashes)"
+    },
+    "base_vocab_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "special_tokens": {
+      "type": ["object", "array"],
+      "description": "Special token map or list"
+    },
+    "merge_file_hash": {
+      "type": ["string", "null"],
+      "pattern": "^([a-f0-9]{64})?$"
+    },
+    "vocab_file_hash": {
+      "type": ["string", "null"]
+    },
+    "added_tokens": {
+      "type": "array",
+      "items": { "type": ["string", "object"] },
+      "description": "Append-only delta; empty when frozen snapshot"
+    },
+    "added_merges": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Provenance for append-only BPE extension"
+    },
+    "tokenizer_mode": {
+      "type": "string",
+      "enum": ["frozen", "append_only", "dynamic"],
+      "description": "frozen=default after train start; append_only=controlled growth; dynamic=discouraged"
+    },
+    "compatibility_with_model": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "model_id": { "type": "string" },
+          "model_version_range": { "type": "string" },
+          "embedding_remap_required": { "type": "boolean" }
+        }
+      }
+    },
+    "content_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Relative paths included in tokenizer_hash"
+    },
+    "code_commit": { "type": ["string", "null"] },
+    "notes": { "type": ["string", "null"] },
+    "created_at": { "type": "string" }
+  }
+}
