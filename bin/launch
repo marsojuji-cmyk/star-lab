@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Launch into the Grok home experience
+set -euo pipefail
+[[ -x "$HOME/homebrew/bin/brew" ]] && eval "$("$HOME/homebrew/bin/brew" shellenv)" 2>/dev/null || true
+export PATH="$HOME/.grok/bin:$HOME/.local/bin:$HOME/homebrew/bin:$PATH"
+export PROJECTS="${PROJECTS:-$HOME/Projects}"
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cmd="${1:-help}"
+
+case "$cmd" in
+  doctor) exec "$ROOT/bin/doctor" ;;
+  status) exec "$ROOT/bin/status" ;;
+  dash|dashboard)
+    open "$ROOT/dashboard/index.html" 2>/dev/null || xdg-open "$ROOT/dashboard/index.html" 2>/dev/null || echo "Open: $ROOT/dashboard/index.html"
+    ;;
+  projects)
+    cd "$PROJECTS" && exec "${SHELL:-bash}"
+    ;;
+  grok)
+    shift || true
+    cd "${1:-$PROJECTS}" 2>/dev/null || cd "$PROJECTS"
+    exec grok
+    ;;
+  new)
+    name="${2:-}"
+    if [[ -z "$name" ]]; then
+      echo "usage: launch new <project-name>"
+      exit 2
+    fi
+    dest="$PROJECTS/$name"
+    mkdir -p "$dest"
+    if [[ ! -f "$dest/AGENTS.md" ]]; then
+      cat > "$dest/AGENTS.md" << EOF
+# $name
+
+## Build
+- (document how to build)
+
+## Test
+- (document how to test)
+
+## Conventions
+- Prefer clear names, small diffs, durable docs.
+EOF
+    fi
+    if [[ ! -f "$dest/README.md" ]]; then
+      echo "# $name" > "$dest/README.md"
+      echo >> "$dest/README.md"
+      echo "Scaffolded by Grok Home on $(date +%Y-%m-%d)." >> "$dest/README.md"
+    fi
+    echo "Created $dest"
+    echo "Next: cd $dest && grok"
+    ;;
+  help|*)
+    cat << EOF
+Grok Home launcher
+
+  launch status      one-screen vitals
+  launch doctor      full health check
+  launch dashboard   open HTML mission control
+  launch projects    shell into ~/Projects
+  launch grok [dir]  start Grok in Projects (or dir)
+  launch new <name>  scaffold a project under ~/Projects
+EOF
+    ;;
+esac

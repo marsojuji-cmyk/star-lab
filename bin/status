@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Compact one-screen status for the Grok world stage
+set -euo pipefail
+[[ -x "$HOME/homebrew/bin/brew" ]] && eval "$("$HOME/homebrew/bin/brew" shellenv)" 2>/dev/null || true
+export PATH="$HOME/.grok/bin:$HOME/.local/bin:$HOME/homebrew/bin:/usr/local/bin:$PATH"
+
+BLD=$'\033[1m'; CYN=$'\033[36m'; DIM=$'\033[2m'; GRN=$'\033[32m'; RST=$'\033[0m'
+
+has() { command -v "$1" >/dev/null 2>&1 && echo "${GRN}on${RST}" || echo "off"; }
+file_on() { [[ -e "$1" ]] && echo "${GRN}on${RST}" || echo "off"; }
+
+echo "${BLD}${CYN}GROK HOME${RST}  ${DIM}$(date '+%Y-%m-%d %H:%M')${RST}"
+echo "────────────────────────────────────"
+printf "  %-16s %s\n" "memory"     "$(grep -q '\[memory\]' "$HOME/.grok/config.toml" 2>/dev/null && grep -q 'enabled = true' "$HOME/.grok/config.toml" && echo "${GRN}on${RST}" || echo "off")"
+printf "  %-16s %s\n" "always-approve" "$(grep -q 'always-approve' "$HOME/.grok/config.toml" 2>/dev/null && echo "${GRN}on${RST}" || echo "off")"
+printf "  %-16s %s\n" "safety-hook" "$(file_on "$HOME/.grok/hooks/safety-guard.json")"
+printf "  %-16s %s\n" "home-rules"  "$(file_on "$HOME/.grok/rules/home.md")"
+printf "  %-16s %s\n" "projects"    "$(file_on "$HOME/Projects")"
+printf "  %-16s %s\n" "brew"        "$(has brew)"
+printf "  %-16s %s\n" "ripgrep"     "$(has rg)"
+printf "  %-16s %s\n" "fd"          "$(has fd)"
+printf "  %-16s %s\n" "fzf"         "$(has fzf)"
+printf "  %-16s %s\n" "gh"          "$(has gh)"
+printf "  %-16s %s\n" "grok"        "$(has grok)"
+printf "  %-16s %s\n" "ollama"      "$(has ollama)"
+echo "────────────────────────────────────"
+echo "${DIM}doctor: ~/Projects/grok-home/bin/doctor${RST}"
+echo "${DIM}dash:   open ~/Projects/grok-home/dashboard/index.html${RST}"

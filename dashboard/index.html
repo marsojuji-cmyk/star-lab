@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grok Home · Mission Control</title>
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --panel: #111827;
+      --panel-2: #0f172a;
+      --line: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+      --magenta: #e879f9;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(232,121,249,.18), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(34,211,238,.14), transparent 50%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 32px 20px 64px; }
+    header {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 860px) {
+      header { grid-template-columns: 1fr; }
+    }
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #000;
+      min-height: 220px;
+      position: relative;
+    }
+    .hero img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      min-height: 220px;
+    }
+    .brand {
+      background: linear-gradient(160deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .eyebrow {
+      color: var(--cyan);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 700;
+      margin: 0 0 10px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 40px);
+      line-height: 1.05;
+      background: linear-gradient(90deg, #fff, var(--cyan) 55%, var(--magenta));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .sub { color: var(--muted); margin: 0; line-height: 1.5; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: rgba(17,24,39,.88);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px 18px 16px;
+      backdrop-filter: blur(8px);
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(30,41,59,.8);
+      font-size: 14px;
+    }
+    li:last-child { border-bottom: 0; }
+    .k { color: var(--text); }
+    .v { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .on { color: var(--green); font-weight: 600; }
+    .cmd {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+      background: #020617;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #a5f3fc;
+      margin: 8px 0 0;
+      overflow-x: auto;
+    }
+    .wide { grid-column: 1 / -1; }
+    .pillrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .pill {
+      border: 1px solid var(--line);
+      background: #0b1220;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .pill strong { color: var(--cyan); font-weight: 700; }
+    footer {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .score {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 16px rgba(52,211,153,.8);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="hero">
+        <img src="../assets/hero.jpg" alt="Grok Home hero art" />
+      </div>
+      <div class="brand">
+        <p class="eyebrow">World Stage · Mission Control</p>
+        <h1>Grok Home is live.</h1>
+        <p class="sub">
+          Memory, safety rails, project roots, CLI tooling, skills, and a doctor
+          that proves the house is in order — not a vibes-only setup.
+        </p>
+        <div class="score">
+          <span class="dot"></span>
+          <span>Operational baseline · compare this to a chat-only install</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Brain</h2>
+        <ul>
+          <li><span class="k">Memory</span><span class="v on">enabled</span></li>
+          <li><span class="k">Home rules</span><span class="v on">~/.grok/rules/home.md</span></li>
+          <li><span class="k">Global MEMORY.md</span><span class="v on">written</span></li>
+          <li><span class="k">Two-pass compaction</span><span class="v on">on</span></li>
+          <li><span class="k">Codebase indexing</span><span class="v on">on</span></li>
+          <li><span class="k">LSP tools</span><span class="v on">on</span></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Hands</h2>
+        <ul>
+          <li><span class="k">Permission mode</span><span class="v on">always-approve</span></li>
+          <li><span class="k">Deny rules</span><span class="v on">hard blocks</span></li>
+          <li><span class="k">Safety hook</span><span class="v on">catastrophic shell</span></li>
+          <li><span class="k">Respect gitignore</span><span class="v on">on</span></li>
+          <li><span class="k">Auto-update</span><span class="v on">on</span></li>
+          <li><span class="k">Theme</span><span class="v on">tokyonight</span></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Terrain</h2>
+        <ul>
+          <li><span class="k">Projects root</span><span class="v on">~/Projects</span></li>
+          <li><span class="k">Control plane</span><span class="v on">~/Projects/grok-home</span></li>
+          <li><span class="k">User Homebrew</span><span class="v on">~/homebrew</span></li>
+          <li><span class="k">Skills</span><span class="v on">session / ship / doctor / new</span></li>
+          <li><span class="k">MCP</span><span class="v on">GitHub · Notion · Google · Figma…</span></li>
+          <li><span class="k">Local models</span><span class="v on">Ollama</span></li>
+        </ul>
+      </div>
+
+      <div class="card wide">
+        <h2>Commands that prove it</h2>
+        <div class="cmd">~/Projects/grok-home/bin/status</div>
+        <div class="cmd">~/Projects/grok-home/bin/doctor</div>
+        <div class="cmd">~/Projects/grok-home/bin/launch new demo-app</div>
+        <div class="cmd">cd ~/Projects && grok</div>
+        <div class="pillrow" style="margin-top:14px">
+          <span class="pill"><strong>/flush</strong> save rich session memory</span>
+          <span class="pill"><strong>/dream</strong> consolidate knowledge</span>
+          <span class="pill"><strong>/memory</strong> browse what sticks</span>
+          <span class="pill"><strong>/dashboard</strong> multi-agent control</span>
+          <span class="pill"><strong>/theme</strong> tokyonight already set</span>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h2>Why this is a 100× home, not a default install</h2>
+        <ul>
+          <li><span class="k">Durable identity</span><span class="v">rules + memory + project AGENTS.md</span></li>
+          <li><span class="k">Speed with guardrails</span><span class="v">always-approve + deny + hook</span></li>
+          <li><span class="k">Measurable health</span><span class="v">doctor scores pass/warn/fail</span></li>
+          <li><span class="k">Repeatable workflows</span><span class="v">skills for ship / scaffold / close</span></li>
+          <li><span class="k">Human-facing proof</span><span class="v">this dashboard + CLI + hero art</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <footer>
+      Built on this machine by Grok Build for user <code>a100</code>.
+      Open this file anytime: <code>~/Projects/grok-home/dashboard/index.html</code>
+    </footer>
+  </div>
+</body>
+</html>

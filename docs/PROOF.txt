@@ -1,0 +1,11 @@
+timestamp=2026-08-01T04:04:25Z
+host=MacBookPro
+grok=grok 0.2.118 (1e1687c1cf6a) [stable]
+rg=ripgrep 15.2.0
+fd=fd 10.4.2
+fzf=0.74.1 (Homebrew)
+gh=gh version 2.97.0 (2026-07-31)
+brew=Homebrew 6.0.14
+projects=AGENTS.md claude-compare-demo grok-home README.md 
+skills=home-doctor new-project session-close ship-it 
+hooks=safety-guard.json session-banner.json 

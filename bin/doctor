@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# grok-home doctor — full system health for the Grok world stage
+set -euo pipefail
+
+# shellcheck disable=SC1091
+[[ -x "$HOME/homebrew/bin/brew" ]] && eval "$("$HOME/homebrew/bin/brew" shellenv)" 2>/dev/null || true
+export PATH="$HOME/.grok/bin:$HOME/.local/bin:$HOME/homebrew/bin:/usr/local/bin:$PATH"
+
+RED=$'\033[31m'; GRN=$'\033[32m'; YLW=$'\033[33m'; CYN=$'\033[36m'; BLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+pass=0; warn=0; fail=0
+
+ok()   { echo "  ${GRN}✓${RST} $*"; pass=$((pass+1)); }
+warn() { echo "  ${YLW}!${RST} $*"; warn=$((warn+1)); }
+bad()  { echo "  ${RED}✗${RST} $*"; fail=$((fail+1)); }
+hdr()  { echo; echo "${BLD}${CYN}▸ $*${RST}"; }
+
+need_cmd() {
+  local c="$1" label="${2:-$1}"
+  if command -v "$c" >/dev/null 2>&1; then
+    local v
+    v=$("$c" --version 2>/dev/null | head -1 | tr -d '\r' || echo "present")
+    ok "$label  ${DIM}$v${RST}"
+  else
+    bad "$label missing"
+  fi
+}
+
+need_file() {
+  local f="$1" label="${2:-$1}"
+  if [[ -e "$f" ]]; then ok "$label"; else bad "$label missing ($f)"; fi
+}
+
+need_toml_key() {
+  local key="$1" file="$HOME/.grok/config.toml"
+  if grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null; then
+    local line
+    line=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$file" | head -1)
+    ok "$key  ${DIM}$line${RST}"
+  else
+    warn "$key not set in config.toml"
+  fi
+}
+
+echo "${BLD}╔══════════════════════════════════════════════╗${RST}"
+echo "${BLD}║         GROK HOME · DOCTOR · $(date +%Y-%m-%d)       ║${RST}"
+echo "${BLD}╚══════════════════════════════════════════════╝${RST}"
+echo "${DIM}host: $(hostname -s) · user: $(whoami) · arch: $(uname -m) · os: $(sw_vers -productVersion 2>/dev/null || uname -s)${RST}"
+
+hdr "Core toolchain"
+need_cmd git Git
+need_cmd node Node
+need_cmd npm npm
+need_cmd python3 Python
+need_cmd grok "Grok CLI"
+need_cmd brew Homebrew
+need_cmd rg ripgrep
+need_cmd fd fd
+need_cmd fzf fzf
+need_cmd gh "GitHub CLI"
+if command -v wget >/dev/null 2>&1; then
+  ok "wget  ${DIM}$(wget --version 2>/dev/null | head -1)${RST}"
+else
+  warn "wget missing (optional; curl is present) — brew may still be compiling it"
+fi
+need_cmd ollama Ollama
+need_cmd jq jq
+
+hdr "Home layout"
+need_file "$HOME/Projects" "~/Projects"
+need_file "$HOME/Projects/AGENTS.md" "Projects AGENTS.md"
+need_file "$HOME/Projects/grok-home" "grok-home project"
+need_file "$HOME/.grok/config.toml" "config.toml"
+need_file "$HOME/.grok/memory/MEMORY.md" "global MEMORY.md"
+need_file "$HOME/.grok/rules/home.md" "home rules"
+need_file "$HOME/.grok/hooks/safety-guard.json" "safety hook"
+need_file "$HOME/.grok/hooks/scripts/safety_guard.py" "safety script"
+need_file "$HOME/.grok/skills/session-close/SKILL.md" "session-close skill"
+need_file "$HOME/.grok/skills/new-project/SKILL.md" "new-project skill"
+need_file "$HOME/.grok/skills/ship-it/SKILL.md" "ship-it skill"
+need_file "$HOME/.grok/skills/home-doctor/SKILL.md" "home-doctor skill"
+
+hdr "Grok config signals"
+need_toml_key "enabled"          # memory (first match may be elsewhere — best effort)
+if grep -q '\[memory\]' "$HOME/.grok/config.toml" && grep -q 'enabled = true' "$HOME/.grok/config.toml"; then
+  ok "memory enabled"
+else
+  bad "memory not enabled"
+fi
+if grep -q 'permission_mode = "always-approve"' "$HOME/.grok/config.toml"; then
+  ok "always-approve mode"
+else
+  warn "permission_mode not always-approve"
+fi
+if grep -q 'lsp_tools = true' "$HOME/.grok/config.toml"; then ok "lsp_tools on"; else warn "lsp_tools off"; fi
+if grep -q 'two_pass_compaction = true' "$HOME/.grok/config.toml"; then ok "two_pass_compaction on"; else warn "two_pass_compaction off"; fi
+if grep -q 'codebase_indexing = true' "$HOME/.grok/config.toml"; then ok "codebase_indexing on"; else warn "codebase_indexing off"; fi
+if grep -q 'respect_gitignore = true' "$HOME/.grok/config.toml"; then ok "respect_gitignore on"; else warn "respect_gitignore off"; fi
+if grep -q 'auto_update = true' "$HOME/.grok/config.toml"; then ok "auto_update on"; else warn "auto_update off"; fi
+if grep -q 'theme = "tokyonight"' "$HOME/.grok/config.toml"; then ok "theme tokyonight"; else warn "theme not tokyonight"; fi
+if grep -q '\[permission\]' "$HOME/.grok/config.toml" && grep -q 'deny' "$HOME/.grok/config.toml"; then
+  ok "permission deny rules present"
+else
+  warn "no permission deny rules"
+fi
+
+hdr "Safety hook smoke test"
+if python3 "$HOME/.grok/hooks/scripts/safety_guard.py" <<<'{"command":"echo hello"}' | grep -q allow; then
+  ok "allows safe command"
+else
+  bad "safety hook failed allow path"
+fi
+if python3 "$HOME/.grok/hooks/scripts/safety_guard.py" <<<'{"command":"rm -rf /"}' | grep -q deny; then
+  ok "blocks rm -rf /"
+else
+  bad "safety hook failed deny path"
+fi
+
+hdr "Runtime"
+if command -v grok >/dev/null 2>&1; then
+  ok "grok version: $(grok --version 2>/dev/null | head -1 || echo unknown)"
+fi
+if command -v ollama >/dev/null 2>&1; then
+  if ollama list 2>/dev/null | tail -n +2 | grep -q .; then
+    ok "ollama models: $(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' | tr '\n' ' ')"
+  else
+    warn "ollama has no models listed"
+  fi
+fi
+free=$(df -h "$HOME" 2>/dev/null | awk 'NR==2{print $4}')
+ok "disk free (home vol): ${free:-unknown}"
+
+hdr "Score"
+total=$((pass + warn + fail))
+echo "  ${GRN}pass=${pass}${RST}  ${YLW}warn=${warn}${RST}  ${RED}fail=${fail}${RST}  total=${total}"
+if [[ $fail -eq 0 ]]; then
+  echo
+  echo "${GRN}${BLD}WORLD STAGE STATUS: OPERATIONAL${RST}"
+  exit 0
+else
+  echo
+  echo "${RED}${BLD}WORLD STAGE STATUS: NEEDS ATTENTION${RST}"
+  exit 1
+fi
