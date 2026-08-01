@@ -39,8 +39,10 @@ model_package/
   model-00002-of-00003.safetensors
   model-00003-of-00003.safetensors
   model.safetensors.index.json   # weight_map: tensor_name → shard file
-  metadata.json         # optional lab fields: body_id, train_framework, created_ts, git_sha
+  manifest.json         # REQUIRED for publish: versioning metadata (JSON Schema)
 ```
+
+See also: **`docs/MODEL-MANIFEST.md`** — schema fields, semver rules, hash policy.
 
 ### Separation of concerns
 

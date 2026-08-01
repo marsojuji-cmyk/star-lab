@@ -164,6 +164,28 @@ def publish_check(package_dir: Path, *, strict: Optional[bool] = None) -> Dict[s
     if not config or not Path(config).is_file():
         warnings.append("missing config.json")
 
+    manifest_path = paths.get("manifest")
+    manifest_report: Optional[Dict[str, Any]] = None
+    if not manifest_path or not Path(manifest_path).is_file():
+        msg = "missing manifest.json (lab weights manifest init …)"
+        if strict:
+            issues.append(msg)
+        else:
+            warnings.append(msg)
+    else:
+        from .manifest import load_manifest, validate_manifest
+
+        try:
+            man = load_manifest(package_dir)
+            manifest_report = validate_manifest(
+                man, package_dir=package_dir, check_hash=True
+            )
+            if not manifest_report.get("ok"):
+                for i in manifest_report.get("issues") or []:
+                    issues.append(f"manifest: {i}")
+        except Exception as e:
+            issues.append(f"manifest unreadable: {e}")
+
     tok_ok = bool(paths.get("tokenizer_dir") or paths.get("tokenizer_json"))
     if not tok_ok:
         warnings.append("no tokenizer/ or tokenizer.json (ok for pure weight packs)")
@@ -223,6 +245,8 @@ def publish_check(package_dir: Path, *, strict: Optional[bool] = None) -> Dict[s
         "strict": strict,
         "has_config": bool(config and Path(config).is_file()),
         "has_tokenizer": tok_ok,
+        "has_manifest": bool(manifest_path and Path(manifest_path).is_file()),
+        "manifest": manifest_report,
         "pickle_files": [str(p) for p in pickles],
         "reports": weight_reports,
     }

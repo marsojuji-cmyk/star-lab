@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grok-home.local/schemas/model_manifest/v1.json",
+  "title": "Star Lab Model Manifest",
+  "description": "Versioning metadata for a published model package. Weights live in safetensors files; this manifest is the cross-runtime contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model_id",
+    "version",
+    "arch",
+    "framework",
+    "weights_uri",
+    "weights_format",
+    "weights_sha256",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Manifest schema version (semver). Separate from model version.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "const": "1.0.0"
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable model identity (e.g. lab.horizon-heuristic, body:starlab-demo/ranker)."
+    },
+    "version": {
+      "type": "string",
+      "description": "Model semantic version major.minor.patch",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([+-][0-9A-Za-z.-]+)?$"
+    },
+    "parent_version": {
+      "type": ["string", "null"],
+      "description": "Lineage: previous model version this was derived from",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([+-][0-9A-Za-z.-]+)?$"
+    },
+    "arch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Architecture name (e.g. forgernn_v1, llama3_8b, tiny_mlp)"
+    },
+    "framework": {
+      "type": "string",
+      "enum": ["pytorch", "mlx", "jax", "numpy", "other"],
+      "description": "Primary training framework"
+    },
+    "framework_version": {
+      "type": ["string", "null"],
+      "description": "Framework version used to train/export"
+    },
+    "weights_uri": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path inside package (model.safetensors or model.safetensors.index.json)"
+    },
+    "weights_format": {
+      "type": "string",
+      "enum": ["safetensors", "safetensors_sharded"],
+      "description": "Weight interchange format (lab standard: safetensors only)"
+    },
+    "weights_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of the primary weights file, or of index+shards concat policy (see docs)"
+    },
+    "tokenizer_id": {
+      "type": ["string", "null"]
+    },
+    "tokenizer_version": {
+      "type": ["string", "null"]
+    },
+    "tokenizer_uri": {
+      "type": ["string", "null"],
+      "description": "Relative path to tokenizer bundle inside package"
+    },
+    "data_version": {
+      "type": ["string", "null"],
+      "description": "Training data snapshot / dataset version id"
+    },
+    "code_commit": {
+      "type": ["string", "null"],
+      "description": "Git commit SHA of training/export code"
+    },
+    "env_hash": {
+      "type": ["string", "null"],
+      "description": "Hash of environment lock (python packages, OS, etc.)"
+    },
+    "body_id": {
+      "type": ["string", "null"],
+      "description": "Optional Star Lab body that owns this package"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Eval metrics at publish time (e.g. accuracy, mae, cost_per_success)"
+    },
+    "license": {
+      "type": ["string", "null"]
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_lab_version": { "type": ["string", "null"] },
+        "runtimes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["pytorch", "mlx", "jax", "onnx", "other"] }
+        },
+        "quantization": {
+          "type": ["string", "null"],
+          "description": "e.g. none, int8, int4, fp16, bf16"
+        },
+        "target_device": {
+          "type": ["string", "null"],
+          "description": "e.g. cpu, mps, cuda, mlx_gpu"
+        },
+        "memory_mb_min": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": ["string", "null"]
+    }
+  }
+}

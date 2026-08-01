@@ -83,6 +83,15 @@ class TestValidate(unittest.TestCase):
             p = root / "model.safetensors"
             raw = b"\x00" * 8
             _write_minimal_safetensors(p, {"bias": ("F32", [2], raw)})
+            from weights.manifest import init_manifest
+
+            init_manifest(
+                root,
+                model_id="lab.test",
+                arch="tiny",
+                framework="other",
+                seal=True,
+            )
             r = publish_check(root, strict=True)
             self.assertTrue(r["ok"], r)
             # add pickle → strict fail

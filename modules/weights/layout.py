@@ -11,19 +11,20 @@ SAFE_WEIGHT_SUFFIXES = {".safetensors"}
 
 LAYOUT_DOC = """
 model_package/
-  config.json
+  manifest.json               # REQUIRED for publish: versioning metadata (JSON Schema)
+  config.json                 # architecture hyperparams (no weights)
   tokenizer/                  # or tokenizer.json + related files
   model.safetensors           # small models
   # OR sharded:
   model-00001-of-NNNNN.safetensors
   model.safetensors.index.json
-  metadata.json               # optional lab provenance
 """.strip()
 
 INDEX_NAME = "model.safetensors.index.json"
 SINGLE_NAME = "model.safetensors"
 CONFIG_NAME = "config.json"
-META_NAME = "metadata.json"
+META_NAME = "metadata.json"  # legacy optional; prefer manifest.json
+MANIFEST_NAME = "manifest.json"
 
 
 def is_pickle_checkpoint(path: Path) -> bool:
@@ -48,6 +49,7 @@ def package_paths(root: Path) -> Dict[str, Optional[Path]]:
         "single": single if single.is_file() else None,
         "shards": shards,
         "metadata": (root / META_NAME) if root.is_dir() and (root / META_NAME).is_file() else None,
+        "manifest": (root / MANIFEST_NAME) if root.is_dir() and (root / MANIFEST_NAME).is_file() else None,
         "tokenizer_dir": (root / "tokenizer") if root.is_dir() and (root / "tokenizer").is_dir() else None,
         "tokenizer_json": (root / "tokenizer.json") if root.is_dir() and (root / "tokenizer.json").is_file() else None,
     }
