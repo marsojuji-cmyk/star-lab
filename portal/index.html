@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Grok Star Lab · Local Portal</title>
+<style>
+  :root {
+    --bg:#0b1020; --card:#121a2f; --text:#e8eefc; --muted:#9aa8c7;
+    --accent:#7aa2ff; --ok:#3dd68c; --warn:#f5a524; --line:#243049;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 10% -10%, #1a2744 0%, var(--bg) 55%);
+    color:var(--text); min-height:100vh; padding:32px 20px 64px;
+  }
+  .wrap { max-width:960px; margin:0 auto; }
+  h1 { font-size:1.75rem; margin:0 0 8px; letter-spacing:-0.02em; }
+  .sub { color:var(--muted); margin:0 0 28px; line-height:1.5; }
+  .grid { display:grid; gap:16px; grid-template-columns:1fr 1fr; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .card {
+    background:rgba(18,26,47,.92); border:1px solid var(--line); border-radius:14px;
+    padding:18px 18px 14px; backdrop-filter: blur(8px);
+  }
+  .card h2 { margin:0 0 10px; font-size:0.95rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  ul { margin:0; padding-left:1.1rem; }
+  li { margin:6px 0; }
+  .pill {
+    display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px;
+    background:#0e1630; border:1px solid var(--line); font-size:0.9rem;
+  }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); }
+  pre {
+    margin:0; white-space:pre-wrap; word-break:break-word; font-size:0.8rem;
+    color:#c9d4f0; background:#0a0f1c; border-radius:10px; padding:12px; border:1px solid var(--line);
+    max-height:220px; overflow:auto;
+  }
+  .muted { color:var(--muted); font-size:0.85rem; }
+  .wide { grid-column:1 / -1; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:0.85em; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Grok Star Lab · Local Portal</h1>
+    <p class="sub">
+      GitHub remote not available yet (CLI not logged in). This is your <strong>local</strong> lab link.
+      Generated 2026-08-01 16:32 UTC · branch <code>main</code>
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Health</h2>
+        <p class="pill"><span class="dot"></span> OPERATIONAL</p>
+        <pre>  ✓ grok version: grok 0.2.118 (1e1687c1cf6a)
+  ✓ ollama models: dolphin3:latest 
+  ✓ disk free (home vol): 1.6Ti
+
+▸ Score
+  pass=52  warn=0  fail=0  total=52
+
+WORLD STAGE STATUS: OPERATIONAL</pre>
+      </div>
+
+      <div class="card">
+        <h2>Token policy</h2>
+        <ul>
+          <li>Status: <strong>active</strong></li>
+          <li>Default mode: <code>short</code></li>
+          <li>Budget: <code>512</code></li>
+        </ul>
+        <p class="muted" style="margin-top:12px">SessionStart arms policy automatically. Route non-trivial tasks with <code>lab tokens route</code>.</p>
+      </div>
+
+      <div class="card">
+        <h2>Open in browser</h2>
+        <ul>
+          <li><a href="../dashboard/index.html">Mission Control dashboard</a></li>
+          <li><a href="../showroom/index.html">Showroom gallery</a></li>
+          <li><a href="../docs/TOKEN-AWARE-CONTROL-PLANE.md">Token control plane doc</a></li>
+          <li><a href="../docs/NEXT-STEPS-CHECKLIST.md">Next-steps checklist</a></li>
+          <li><a href="../docs/USAGE-METERING.md">Usage metering</a></li>
+          <li><a href="../README.md">README</a></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>CLI (local)</h2>
+        <pre>lab doctor
+lab status
+lab tokens policy
+lab gym smoke
+lab forge list
+lab showroom list
+lab dash</pre>
+      </div>
+
+      <div class="card wide">
+        <h2>Showroom entries (4)</h2>
+        <ul>
+          <li><a href="../showroom/entries/starlab-demo-first-e2e-forge-tests-gym-s-20260801/body.md"><strong>starlab-demo first e2e: forge tests + gym smoke</strong></a> <span class="muted">[experiment]</span></li><li><a href="../showroom/entries/model-gym-offline-eval-20260731/body.md"><strong>Model gym offline eval lane</strong></a> <span class="muted">[experiment]</span></li><li><a href="../showroom/entries/grok-home-control-plane-20260731/body.md"><strong>Grok Home control plane</strong></a> <span class="muted">[demo]</span></li><li><a href="../showroom/entries/claude-compare-demo-20260731/body.md"><strong>Claude compare demo</strong></a> <span class="muted">[demo]</span></li>
+        </ul>
+      </div>
+
+      <div class="card wide">
+        <h2>Git remotes</h2>
+        <pre>origin = /Users/a100/Projects/grok-home-origin.git  (local bare)
+github = not configured (run: gh auth login && scripts/push-to-github.sh)
+
+GitHub website: https://github.com/
+After auth, repo will be: https://github.com/&lt;you&gt;/grok-home</pre>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
