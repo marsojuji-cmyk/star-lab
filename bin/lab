@@ -39,11 +39,11 @@ Grok Star Lab  (lab)
   lab install [args…]      create ~/.grok/lab, symlink, packaging pin
   lab dash                 snapshot + open Mission Control (file://)
   lab observatory …        snapshot | dash | report
-  lab ship check|run|pr    Ship Bay local checks + optional inbox capture
-  lab showroom capture|list|publish|open  Showroom (PR9 full loop)
-  lab design …             Design studio
+  lab forge …              experiment tracking
+  lab design …             Design Studio
+  lab ship check|run|pr    Ship Bay
+  lab showroom …           capture | list | publish | open
 
-Later modules (forge, gym, arena, …) land in subsequent PRs.
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
 EOF
@@ -98,6 +98,12 @@ case "$cmd" in
       exit 1
     fi
     exec python3 "$showroom_cli" "$@"
+    ;;
+  forge)
+    exec python3 "${ROOT}/modules/forge/cli.py" "$@"
+    ;;
+  design)
+    exec python3 "${ROOT}/modules/design/cli.py" "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2
