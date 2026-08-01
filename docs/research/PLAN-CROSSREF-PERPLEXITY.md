@@ -12,9 +12,18 @@
 ## Verdict
 
 **The plan is sound and aligned with the token-awareness research program.**  
-Suggested order (shadow → golden/drift → online λ/bandit → memory→skill → cache/tenant → ablation) matches both the Perplexity thread and 2025–2026 routing literature. Star Lab already implements the **single-price EV core** (`reward − λ·kilotokens`); the plan correctly moves from offline design to **prove → learn → harden**.
+**Perplexity follow-up (ALIGNED | GAPS | CHANGE ORDER | DROP) incorporated 2026-08-01:**
 
-**Confidence:** high on sequencing and math shape; medium on multi-tenant KV claims until real cache telemetry exists (plan already honest about instrumentation-first).
+| Response | Action in lab |
+|----------|----------------|
+| ALIGNED shadow→golden→bandit | kept |
+| GAPS canary/rollback, frozen-vs-drift, data bar, fallback budget, session lock | **`lab tokens gates|eval|canary|session`** |
+| CHANGE ORDER insert canary before online λ | order 0…7 in `CLOSED-LOOP-GATES.md` |
+| DROP heavy heads + blind λ | gates `ready_for_online`; λ documented as control signal |
+
+Star Lab implements the **single-price EV core** (`reward − λ·kilotokens`) as a **calibrated control signal**, not a day-one blind rule.
+
+**Confidence:** high on sequencing; medium on multi-tenant KV until real cache telemetry.
 
 ---
 

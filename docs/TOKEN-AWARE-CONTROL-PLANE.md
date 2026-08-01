@@ -118,11 +118,26 @@ Audit DB: `~/.grok/lab/token_policy.db` (or `$GROK_LAB_DATA/token_policy.db`).
 
 | Env | Default | Meaning |
 |-----|---------|---------|
-| `GROK_TOKEN_LAMBDA` | `0.12` | cost weight λ (reward units per **kilotoken**) |
+| `GROK_TOKEN_LAMBDA` | `0.12` | cost weight λ (reward units per **kilotoken**); **tunable control signal**, not a blind rule |
 | `GROK_TOKEN_MIN_CONF` | `0.55` | confidence gate for medium/deep |
 | `GROK_TOKEN_ESCALATE_MARGIN` | `0.02` | EV must beat local by this |
 | `GROK_LENVM_CMD` | unset | external LenVM JSON probe |
 | `GROK_LAB_DATA` | `~/.grok/lab` | audit storage |
+| `GROK_TOKEN_SHADOW` | `1` | set `0` to disable shadow dual-log |
+| `GROK_SESSION_ID` / `GROK_TENANT` | unset / `local` | stamped on shadow rows |
+
+### Closed-loop gates (observation → influence)
+
+```bash
+lab tokens eval                 # frozen golden suite (router_v1)
+lab tokens eval --freeze-baseline
+lab tokens eval --drift         # live drift vs baseline
+lab tokens gates                # data bar: ready_for_canary / ready_for_online
+lab tokens canary propose|start|rollback|promote
+lab tokens session lock --mode medium --reason tool_loop
+```
+
+Full spec: `docs/research/CLOSED-LOOP-GATES.md`
 
 ---
 

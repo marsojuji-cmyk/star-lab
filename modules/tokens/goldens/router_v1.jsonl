@@ -1,0 +1,10 @@
+{"id": "ops1", "task": "lab doctor", "expected_mode": "local", "must_not_deep": true, "tags": ["ops"]}
+{"id": "ops2", "task": "show status and help for tokens", "expected_mode": "local", "must_not_deep": true, "tags": ["ops"]}
+{"id": "typo1", "task": "fix typo in README title", "expected_mode": "local", "must_not_deep": true, "tags": ["cheap"]}
+{"id": "rename1", "task": "rename variable foo to bar in one file", "expected_mode": "local", "must_not_deep": true, "tags": ["cheap"]}
+{"id": "feat1", "task": "implement a small CLI flag for verbose logging", "expected_mode": "short", "tags": ["feature"]}
+{"id": "test1", "task": "add unit tests for the packet create helper", "expected_mode": "local", "tags": ["test"]}
+{"id": "review1", "task": "review this diff for security issues in auth middleware", "expected_mode": "short", "tags": ["review"]}
+{"id": "arch1", "task": "design multi-agent token budget architecture with ablation plan", "expected_mode": "deep", "tags": ["architecture"]}
+{"id": "debug1", "task": "hard multi-file debug: flaky race in async graph router under load", "expected_mode": "short", "tags": ["debug"]}
+{"id": "ops3", "task": "list recent forge experiments", "expected_mode": "local", "must_not_deep": true, "tags": ["ops"]}
