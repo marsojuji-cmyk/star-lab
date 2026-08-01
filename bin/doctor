@@ -157,7 +157,7 @@ fi
 # solely because an optional module has not shipped yet on this branch.
 hdr "Star Lab modules"
 _lab_modules=(
-  arena design dock forge gym imagine knowledge observatory sandbox ship showroom tokens sqc research
+  arena design dock forge gym imagine knowledge observatory sandbox ship showroom tokens sqc research graph
 )
 for _m in "${_lab_modules[@]}"; do
   _mdir="${ROOT}/modules/${_m}"
