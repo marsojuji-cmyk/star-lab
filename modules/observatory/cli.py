@@ -162,6 +162,8 @@ def build_status(root: Path, doctor: Dict[str, Any]) -> Dict[str, Any]:
     lab = lab_data_root()
     modules = {name: "off" for name in MODULE_NAMES}
     modules["observatory"] = "ok"
+    if (root / "modules" / "showroom" / "regen_index.py").is_file():
+        modules["showroom"] = "ok"
 
     showroom_entries = root / "showroom" / "entries"
     showroom_inbox = lab / "showroom" / "inbox"

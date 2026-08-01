@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grok Star Lab · Showroom</title>
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --panel: #111827;
+      --line: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+      --magenta: #e879f9;
+      --green: #34d399;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1000px 500px at 10% -10%, rgba(232,121,249,.16), transparent 55%),
+        radial-gradient(800px 400px at 90% 0%, rgba(34,211,238,.12), transparent 50%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+    header { margin-bottom: 28px; }
+    .eyebrow {
+      color: var(--cyan);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 700;
+      margin: 0 0 10px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 40px);
+      line-height: 1.05;
+      background: linear-gradient(90deg, #fff, var(--cyan) 55%, var(--magenta));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .sub { color: var(--muted); margin: 0; line-height: 1.5; }
+    .nav { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .nav a {
+      color: var(--cyan);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      background: #0b1220;
+    }
+    .nav a:hover { border-color: var(--cyan); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .card {
+      background: rgba(17,24,39,.9);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .card h2 { margin: 8px 0 8px; font-size: 1.15rem; }
+    .card h2 a { color: var(--text); text-decoration: none; }
+    .card h2 a:hover { color: var(--cyan); }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .kind {
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700;
+      color: var(--cyan);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .project { color: var(--magenta); }
+    .summary { color: var(--muted); margin: 0 0 8px; line-height: 1.45; }
+    .proof code {
+      display: block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      background: #020617;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #a5f3fc;
+      margin: 4px 0;
+      overflow-x: auto;
+    }
+    .id { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+    .empty { color: var(--muted); }
+    footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Star Lab · Portfolio</p>
+      <h1>Showroom</h1>
+      <p class="sub">
+        Curated best work — inbox capture is private; publish is explicit.
+        3 entries on disk.
+      </p>
+      <div class="nav">
+        <a href="../dashboard/index.html">Mission Control</a>
+        <a href="../docs/COMPARE-WITH-CLAUDE.md">Claude compare</a>
+        <a href="../docs/PROOF.txt">Proof</a>
+      </div>
+    </header>
+    <section class="grid">
+
+      <article class="card kind-experiment">
+        <div class="meta">
+          <span class="kind">experiment</span>
+          <span class="project">grok-home</span>
+          <time>2026-07-31T12:10:00Z</time>
+        </div>
+        <h2><a href="entries/model-gym-offline-eval-20260731/body.md">Model gym offline eval lane</a></h2>
+        <p class="summary">Model gym lane: offline evals against local Ollama (dolphin3 default), session handoff for remote Grok — referenced from Star Lab design and compare scorecard.</p>
+        <div class="proof"><code>lab help</code><code>lab showroom list</code><code>test -d ~/.grok/lab/gym</code></div>
+        <p class="id"><code>model-gym-offline-eval-20260731</code></p>
+      </article>
+
+      <article class="card kind-demo">
+        <div class="meta">
+          <span class="kind">demo</span>
+          <span class="project">claude-compare-demo</span>
+          <time>2026-07-31T12:05:00Z</time>
+        </div>
+        <h2><a href="entries/claude-compare-demo-20260731/body.md">Claude compare demo</a></h2>
+        <p class="summary">Head-to-head scorecard and runnable demo scaffold — same machine, same ask, durable surface area vs advice-only agents.</p>
+        <div class="proof"><code>open ~/Projects/claude-compare-demo/index.html</code><code>lab showroom open</code><code>test -f docs/COMPARE-WITH-CLAUDE.md</code></div>
+        <p class="id"><code>claude-compare-demo-20260731</code></p>
+      </article>
+
+      <article class="card kind-demo">
+        <div class="meta">
+          <span class="kind">demo</span>
+          <span class="project">grok-home</span>
+          <time>2026-07-31T12:00:00Z</time>
+        </div>
+        <h2><a href="entries/grok-home-control-plane-20260731/body.md">Grok Home control plane</a></h2>
+        <p class="summary">Control plane vitals: doctor scores health, status one-screen, mission-control dashboard embed — offline-first proof on this Mac.</p>
+        <div class="proof"><code>lab doctor</code><code>lab status</code><code>lab dash</code></div>
+        <p class="id"><code>grok-home-control-plane-20260731</code></p>
+      </article>
+    </section>
+    <footer>
+      Regenerated 2026-08-01T05:51:11Z · <code>lab showroom list</code> ·
+      <code>lab showroom publish</code> · no auto-publish
+    </footer>
+  </div>
+</body>
+</html>

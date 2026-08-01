@@ -97,6 +97,7 @@ case "$cmd" in
       echo "error: missing ${showroom_cli}" >&2
       exit 1
     fi
+    export GROK_LAB_REPO="${ROOT}"
     exec python3 "$showroom_cli" "$@"
     ;;
   forge)

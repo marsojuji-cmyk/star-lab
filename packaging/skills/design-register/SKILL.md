@@ -28,6 +28,6 @@ When the user finishes a design doc or asks to catalog architecture/specs for Gr
 
 4. After a `/design` skill loop (or similar), prefer registering the durable doc under the project `docs/design/` tree so Knowledge Crucible and Showroom can find it later.
 
-5. Do **not** commit or publish Showroom entries from this skill. Publish is explicit (`lab showroom publish` in a later PR).
+5. Do **not** auto-publish Showroom entries from this skill. Publish is explicit: `lab showroom publish <capture_id>`.
 
 If `lab design` is missing, ensure the lab CLI is on PATH (`lab install` / `~/.local/bin/lab`).
