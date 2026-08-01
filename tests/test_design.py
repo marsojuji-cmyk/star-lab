@@ -225,6 +225,101 @@ class DesignTestCase(unittest.TestCase):
         )
         self.assertNotEqual(r.returncode, 0)
 
+    def test_sanitize_project_rejects_absolute_and_traversal(self) -> None:
+        with self.assertRaises(self.design.ProjectNameError):
+            self.design.sanitize_project_name("/tmp")
+        with self.assertRaises(self.design.ProjectNameError):
+            self.design.sanitize_project_name("../../OUTSIDE")
+        with self.assertRaises(self.design.ProjectNameError):
+            self.design.sanitize_project_name("..")
+        with self.assertRaises(self.design.ProjectNameError):
+            self.design.sanitize_project_name("")
+        with self.assertRaises(self.design.ProjectNameError):
+            self.design.sanitize_project_name("foo/bar")
+        self.assertEqual(self.design.sanitize_project_name("demo-proj"), "demo-proj")
+
+    def test_register_rejects_escaped_project(self) -> None:
+        src = self._write_doc("docs/esc.md", "# Esc\n")
+        store = self.design.DesignStore()
+        with self.assertRaises(self.design.ProjectNameError):
+            store.register(src, project="/tmp", slug="abs")
+        with self.assertRaises(self.design.ProjectNameError):
+            store.register(src, project="../../OUTSIDE", slug="trav")
+        # Must not have written under /tmp or outside PROJECTS
+        outside = Path(self._tmpdir) / "OUTSIDE" / "docs" / "design"
+        self.assertFalse(outside.exists())
+
+        r = subprocess.run(
+            [
+                str(LAB),
+                "design",
+                "register",
+                str(src),
+                "--project",
+                "/tmp",
+                "--slug",
+                "abs-cli",
+            ],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            check=False,
+        )
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("project", (r.stderr + r.stdout).lower())
+
+    def test_reregister_overwrites_canonical_content(self) -> None:
+        src = self._write_doc("scratch/refresh.md", "# V1\n\nversion one\n")
+        store = self.design.DesignStore()
+        doc1 = store.register(src, project="demo-proj", slug="refresh")
+        canon = Path(doc1["path"])
+        self.assertIn("version one", canon.read_text(encoding="utf-8"))
+
+        src.write_text("# V2\n\nversion two\n", encoding="utf-8")
+        doc2 = store.register(src, project="demo-proj", slug="refresh")
+        self.assertEqual(doc1["id"], doc2["id"])
+        body = Path(doc2["path"]).read_text(encoding="utf-8")
+        self.assertIn("version two", body)
+        self.assertNotIn("version one", body)
+
+    def test_list_rejects_negative_limit(self) -> None:
+        store = self.design.DesignStore()
+        with self.assertRaises(ValueError):
+            store.list_docs(limit=-1)
+        r = subprocess.run(
+            [str(LAB), "design", "list", "--limit", "-1"],
+            capture_output=True,
+            text=True,
+            env=self.env,
+            check=False,
+        )
+        self.assertEqual(r.returncode, 2)
+
+    def test_cli_open_prints_path_without_editor(self) -> None:
+        src = self._write_doc("docs/openme.md", "# Open Me\n")
+        store = self.design.DesignStore()
+        doc = store.register(src, project="demo-proj", slug="openme")
+        # Force print path: no EDITOR, and open/xdg-open may exist on macOS —
+        # still should exit 0 and mention path or open successfully.
+        env = dict(self.env)
+        env["EDITOR"] = ""
+        env["VISUAL"] = ""
+        r = subprocess.run(
+            [str(LAB), "design", "open", "openme", "--project", "demo-proj"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        self.assertEqual(r.returncode, 0, msg=r.stderr + r.stdout)
+        # stdout should reference the doc (open line or printed path)
+        combined = r.stdout + r.stderr
+        self.assertTrue(
+            "openme" in combined or doc["path"] in combined or "docs/design" in combined,
+            msg=combined,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
+

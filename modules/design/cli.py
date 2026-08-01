@@ -20,7 +20,11 @@ for p in (str(_REPO / "lib"), str(_MODULES)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from design.design import DesignStore, register_doc  # noqa: E402
+from design.design import (  # noqa: E402
+    DesignStore,
+    ProjectNameError,
+    register_doc,
+)
 
 
 def _usage() -> str:
@@ -60,6 +64,9 @@ def cmd_register(args: argparse.Namespace) -> int:
     except FileNotFoundError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1
+    except ProjectNameError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
     except Exception as exc:  # noqa: BLE001
         print("error: register failed: %s" % exc, file=sys.stderr)
         return 1
@@ -79,8 +86,15 @@ def cmd_register(args: argparse.Namespace) -> int:
 
 
 def cmd_list(args: argparse.Namespace) -> int:
+    if args.limit < 0:
+        print("error: --limit must be >= 0 (got %s)" % args.limit, file=sys.stderr)
+        return 2
     store = DesignStore()
-    docs = store.list_docs(project=args.project, limit=args.limit)
+    try:
+        docs = store.list_docs(project=args.project, limit=args.limit)
+    except ValueError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
     if args.json:
         out = []
         for d in docs:
@@ -187,7 +201,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     pl = sub.add_parser("list", help="List registered design docs")
     pl.add_argument("--project", default=None)
-    pl.add_argument("--limit", type=int, default=100)
+    pl.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="max rows (default 100; must be >= 0)",
+    )
     pl.add_argument("--json", action="store_true")
     pl.set_defaults(func=cmd_list)
 

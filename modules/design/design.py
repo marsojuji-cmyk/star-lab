@@ -58,14 +58,71 @@ def _json_loads(s: Optional[str], default: Any = None) -> Any:
         return default if default is not None else []
 
 
+def projects_root() -> Path:
+    """Resolved PROJECTS root (env PROJECTS or ~/Projects)."""
+    return Path(PROJECTS).expanduser().resolve()
+
+
+def _is_under(path: Path, root: Path) -> bool:
+    """Python 3.9-safe Path.is_relative_to equivalent."""
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+class ProjectNameError(ValueError):
+    """Invalid --project name (absolute, path separators, or escapes PROJECTS)."""
+
+
+def sanitize_project_name(project: str) -> str:
+    """
+    Validate project as a single path segment under PROJECTS.
+
+    Rejects empty, absolute paths, separators, ``..``, and names that would
+    resolve outside PROJECTS after join.
+    """
+    if project is None:
+        raise ProjectNameError("project name is required")
+    name = str(project).strip()
+    if not name:
+        raise ProjectNameError("project name is empty")
+    # Absolute (POSIX /… or Windows drive) — Path join would replace base
+    if Path(name).is_absolute() or name.startswith("~"):
+        raise ProjectNameError(
+            "project must be a name under PROJECTS, not an absolute path: %r" % name
+        )
+    if name in (".", ".."):
+        raise ProjectNameError("invalid project name: %r" % name)
+    # No multi-segment / traversal
+    if os.sep in name or (os.altsep and os.altsep in name) or "/" in name or "\\" in name:
+        raise ProjectNameError(
+            "project must be a single path segment (no separators): %r" % name
+        )
+    if ".." in Path(name).parts:
+        raise ProjectNameError("project must not contain '..': %r" % name)
+    # Only safe single-segment names (alnum + . _ -)
+    if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", name):
+        raise ProjectNameError(
+            "project name has invalid characters (use alnum, ., _, -): %r" % name
+        )
+    # After join, must stay under PROJECTS (defense in depth)
+    root = projects_root()
+    candidate = (root / name).resolve()
+    if candidate == root or not _is_under(candidate, root):
+        raise ProjectNameError("project escapes PROJECTS root: %r" % name)
+    return name
+
+
 def infer_project(path: Path) -> Optional[str]:
     """
-    If path is under PROJECTS/<name>/..., return <name>.
+    If path is under PROJECTS/<name>/..., return sanitized <name>.
     Otherwise None.
     """
     try:
         resolved = path.expanduser().resolve()
-        projects = Path(PROJECTS).expanduser().resolve()
+        projects = projects_root()
     except OSError:
         return None
     try:
@@ -75,14 +132,24 @@ def infer_project(path: Path) -> Optional[str]:
     parts = rel.parts
     if not parts:
         return None
-    return parts[0]
+    try:
+        return sanitize_project_name(parts[0])
+    except ProjectNameError:
+        return None
 
 
 def canonical_design_path(project: str, slug: str, day: Optional[str] = None) -> Path:
-    """~/Projects/<project>/docs/design/<YYYY-MM-DD>-<slug>.md"""
+    """~/Projects/<project>/docs/design/<YYYY-MM-DD>-<slug>.md (project sanitized)."""
+    safe = sanitize_project_name(project)
     if day is None:
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return Path(PROJECTS) / project / "docs" / "design" / f"{day}-{slug}.md"
+    root = projects_root()
+    canon = (root / safe / "docs" / "design" / f"{day}-{slug}.md").resolve()
+    # Confine under PROJECTS/<safe>/
+    project_root = (root / safe).resolve()
+    if not _is_under(canon, project_root):
+        raise ProjectNameError("canonical path escapes project root: %s" % canon)
+    return canon
 
 
 def extract_title(path: Path) -> Optional[str]:
@@ -188,6 +255,8 @@ class DesignStore:
         project: Optional[str] = None,
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
+        if limit < 0:
+            raise ValueError("limit must be >= 0 (got %s)" % limit)
         with self.connect() as conn:
             if project is not None:
                 rows = conn.execute(
@@ -218,12 +287,19 @@ class DesignStore:
         Record a design doc pointer. Optionally copy into
         ~/Projects/<project>/docs/design/<YYYY-MM-DD>-<slug>.md when
         source is outside that tree.
+
+        Re-register with copy enabled overwrites an existing canonical file
+        so durable docs stay truthful after source edits.
         """
         src = path.expanduser().resolve()
         if not src.is_file():
             raise FileNotFoundError("design doc not found: %s" % src)
 
-        proj = project or infer_project(src)
+        if project is not None:
+            proj: Optional[str] = sanitize_project_name(project)
+        else:
+            proj = infer_project(src)
+
         stem_slug = slugify(slug or src.stem)
         # If filename already looks like YYYY-MM-DD-slug, prefer that slug tail
         m = re.match(r"^(\d{4}-\d{2}-\d{2})-(.+)$", src.stem)
@@ -245,17 +321,14 @@ class DesignStore:
                 same = False
             if not same:
                 canon.parent.mkdir(parents=True, mode=0o755, exist_ok=True)
-                if canon.exists():
-                    # Keep existing canonical file; still re-point registry
-                    dest = canon
-                else:
-                    shutil.copy2(str(src), str(canon))
-                    try:
-                        os.chmod(canon, 0o644)
-                    except OSError:
-                        pass
-                    dest = canon
-                    copied = True
+                # Always refresh: copy (overwrite) so re-register updates content
+                shutil.copy2(str(src), str(canon))
+                try:
+                    os.chmod(canon, 0o644)
+                except OSError:
+                    pass
+                dest = canon
+                copied = True
             else:
                 dest = canon
 
@@ -263,10 +336,14 @@ class DesignStore:
         existing = self.get_by_slug(stem_slug, project=proj)
         now = utc_now_iso()
         tags_json = _json_dumps(list(tags or []))
-        showroom_id: Optional[str] = None
 
         if existing:
             doc_id = existing["id"]
+            src_col = (
+                source_path
+                if copied or str(dest) != source_path
+                else (existing.get("source_path") or source_path)
+            )
             with self.connect() as conn:
                 conn.execute(
                     """
@@ -278,10 +355,7 @@ class DesignStore:
                     (
                         doc_title,
                         str(dest),
-                        source_path if copied or str(dest) != source_path else existing.get(
-                            "source_path"
-                        )
-                        or source_path,
+                        src_col,
                         tags_json if tags is not None else None,
                         notes,
                         doc_id,
@@ -334,7 +408,7 @@ class DesignStore:
         return doc
 
 
-def write_showroom_capture(
+def _write_inbox_json(
     *,
     title: str,
     project: Optional[str],
@@ -342,36 +416,7 @@ def write_showroom_capture(
     design_id: str,
     slug: str,
 ) -> str:
-    """
-    Write showroom inbox entry for a design doc.
-    Prefer modules/showroom/capture.py when present (PR8+); else write
-    the same inbox JSON shape locally (inbox only, no publish).
-    """
-    # Try shared capture API first
-    try:
-        showroom_path = _REPO / "modules" / "showroom"
-        if showroom_path.is_dir() and (showroom_path / "capture.py").is_file():
-            if str(showroom_path) not in sys.path:
-                sys.path.insert(0, str(showroom_path))
-            import capture  # type: ignore
-
-            if hasattr(capture, "capture"):
-                out = capture.capture(
-                    title=title,
-                    kind="design",
-                    project=project,
-                    source="from-design",
-                    summary="Registered design doc: %s" % slug,
-                    paths=[path],
-                    proof_commands=["lab design list", "lab design open %s" % design_id[:12]],
-                    extra={"design_id": design_id, "slug": slug},
-                )
-                # capture returns Path; derive id from filename stem
-                return Path(out).stem
-    except Exception:
-        pass
-
-    # Fallback: write inbox JSON directly
+    """Local showroom inbox write (same shape as PR8 capture)."""
     ensure_lab_dirs()
     inbox = lab_data_root() / "showroom" / "inbox"
     inbox.mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -411,6 +456,56 @@ def write_showroom_capture(
     except OSError:
         pass
     return cid
+
+
+def write_showroom_capture(
+    *,
+    title: str,
+    project: Optional[str],
+    path: str,
+    design_id: str,
+    slug: str,
+) -> str:
+    """
+    Write showroom inbox entry for a design doc.
+    Prefer modules/showroom/capture.py when present (PR8+); else write
+    the same inbox JSON shape locally (inbox only, no publish).
+    """
+    showroom_path = _REPO / "modules" / "showroom"
+    capture_py = showroom_path / "capture.py"
+    if showroom_path.is_dir() and capture_py.is_file():
+        try:
+            if str(showroom_path) not in sys.path:
+                sys.path.insert(0, str(showroom_path))
+            import capture  # type: ignore
+        except ImportError:
+            capture = None  # type: ignore
+        else:
+            if hasattr(capture, "capture"):
+                # Real capture failures propagate (do not double-write)
+                out = capture.capture(
+                    title=title,
+                    kind="design",
+                    project=project,
+                    source="from-design",
+                    summary="Registered design doc: %s" % slug,
+                    paths=[path],
+                    proof_commands=[
+                        "lab design list",
+                        "lab design open %s" % design_id[:12],
+                    ],
+                    extra={"design_id": design_id, "slug": slug},
+                )
+                return Path(out).stem
+
+    return _write_inbox_json(
+        title=title,
+        project=project,
+        path=path,
+        design_id=design_id,
+        slug=slug,
+    )
+
 
 
 def register_doc(
