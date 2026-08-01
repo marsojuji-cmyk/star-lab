@@ -15,6 +15,7 @@ sys.path.insert(0, str(_ROOT / "modules"))
 from graph.router import route_context, ablate
 from graph.allocator import allocate_budget
 from graph.logstore import GraphLog
+from graph.breaker import trip as breaker_trip, reset as breaker_reset, status as breaker_status
 
 
 def _load_memory(path: Optional[str], inline: Optional[str]) -> List[Dict[str, Any]]:
@@ -200,6 +201,26 @@ def cmd_budget(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_breaker(args: argparse.Namespace) -> int:
+    sub = args.breaker_cmd
+    if sub == "status":
+        print(json.dumps(breaker_status(), indent=2))
+        return 0
+    if sub == "trip":
+        ent = breaker_trip(
+            args.role,
+            reason=args.reason or "",
+            fallback_policy=args.fallback or "budgeted",
+        )
+        print(json.dumps(ent, indent=2))
+        return 0
+    if sub == "reset":
+        print(json.dumps(breaker_reset(args.role), indent=2))
+        return 0
+    print("error: breaker status|trip|reset", file=sys.stderr)
+    return 2
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(
         prog="lab graph",
@@ -269,6 +290,19 @@ def main(argv=None) -> int:
     bu.add_argument("--parent-budget", type=int, default=None)
     bu.add_argument("--json", action="store_true")
     bu.set_defaults(func=cmd_budget)
+
+    br = sub.add_parser("breaker", help="Circuit breaker: isolate one role")
+    br_sub = br.add_subparsers(dest="breaker_cmd", required=True)
+    br_s = br_sub.add_parser("status")
+    br_s.set_defaults(func=cmd_breaker, breaker_cmd="status")
+    br_t = br_sub.add_parser("trip")
+    br_t.add_argument("--role", required=True)
+    br_t.add_argument("--reason", default="")
+    br_t.add_argument("--fallback", default="budgeted", choices=["budgeted", "full", "role_aware"])
+    br_t.set_defaults(func=cmd_breaker, breaker_cmd="trip")
+    br_r = br_sub.add_parser("reset")
+    br_r.add_argument("--role", default=None, help="Role to reset (all if omitted)")
+    br_r.set_defaults(func=cmd_breaker, breaker_cmd="reset")
 
     args = p.parse_args(argv)
     return int(args.func(args))

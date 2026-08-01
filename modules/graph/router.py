@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from .allocator import allocate_budget
 from .scorer import score_item, estimate_tokens
+from .breaker import apply_to_policy
 
 
 @dataclass
@@ -73,6 +74,8 @@ def route_context(
       role_aware — three-gate α sort + budget (baseline C)
     """
     policy = (policy or "role_aware").lower()
+    # circuit breaker: isolate bad role without killing whole graph
+    policy = apply_to_policy(role, policy)
     if budget is None:
         budget = allocate_budget(
             role, parent_context_budget=parent_context_budget, stage=stage

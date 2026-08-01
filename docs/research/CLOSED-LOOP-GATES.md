@@ -1,116 +1,131 @@
-# Closed-loop gates (shadow → canary → online)
+# Closed-loop gates — four-stage progressive delivery
 
-**Status:** implemented as `lab tokens gates|eval|canary|session`  
-**Doctrine:** observation precedes influence.
-
-Perplexity / literature alignment (2026-08-01): **ALIGNED** on funnel; **GAPS** closed here with explicit canary, data bar, frozen-vs-drift, fallback budget, session locks; **CHANGE ORDER** adopted; **DROP** heavy heads until bars pass.
+**Status:** `lab tokens rollout` + `lab graph breaker`  
+**Doctrine:** observation precedes influence; each stage answers a different question.
 
 ---
 
-## Stricter order
+## Four-stage gate
 
-| # | Phase | Gate before next |
-|---|-------|------------------|
-| 0 | Clean packets + LEAD recovery | recover works offline |
-| 1 | Shadow dual-log | shadow n growing, join path exists |
-| 2 | **Frozen** golden + **drift** harness (separated) | agreement + no drift flags |
-| 3 | **Canary / guarded promotion** + rollback | ready_for_canary |
-| 4 | Online λ + light bandit | ready_for_online |
-| 5 | Memory → skill promotion | reuse metrics |
-| 6 | Cache / multi-tenant telemetry | schema only until real KV |
-| 7 | Ablation publish | repro commands |
+| Stage | Traffic to candidate | User impact | Eval question | Promote when |
+|-------|----------------------|-------------|---------------|--------------|
+| **1. Shadow** | 100% mirrored | **Zero** | Similar to baseline on real traffic? | mode agree + frozen eval |
+| **2. Canary** | **1–5%** sticky cohorts | Limited | At least as good with users in the loop? | full **window** pack green |
+| **3. Percentage ramp** | 10 → 25 → 50% | Broader | Deltas hold over windows? | each step window green |
+| **4. Full** | 100%, auto-rollback armed | All | Hold under load? | hold window; prior baseline retained |
+
+**Multi-agent:** canary does **not** start until shadow similarity **and** frozen eval pass.
 
 ---
 
-## Declared data bar (graduation)
-
-Defaults in `modules/tokens/gates.py` / override `~/.grok/lab/graduation_bar.json`:
-
-| Bar | Default | Meaning |
-|-----|---------|---------|
-| `min_shadow_n` | 50 | shadow dual-log volume |
-| `min_join_rate` | 0.50 | shadow → completed audit join |
-| `min_mode_agree_frac` | 0.85 | served vs shadow (mirror ≈1.0) |
-| `min_golden_agreement` | 0.80 | frozen suite exact mode match |
-| `max_horizon_mae` | 2500 | calibration under shift |
-| `require_sqc_accept` | true | Loop 3 before online |
-| `max_fallback_chaos_fail_rate` | 0.15 | LEAD recover failure budget |
-| `canary_max_traffic_frac` | 0.10 | cap canary slice |
+## CLI
 
 ```bash
-lab tokens gates          # graduation report
-lab tokens eval           # frozen suite
-lab tokens eval --drift   # drift vs frozen baseline
-lab tokens eval --freeze-baseline
+# Stage 1
+lab tokens route "…"
+lab tokens shadow compare
+lab tokens eval && lab tokens gates
+
+# Stage 2 (blocked until gates + shadow_ok)
+lab tokens rollout propose --policy-id candidate_v2
+lab tokens rollout shadow-ok
+lab tokens rollout start --frac 0.01          # default 1%, max 5%
+lab tokens rollout check                      # window pack; hard stop → rollback
+lab tokens rollout advance                    # 1%→5% then →10% ramp…
+
+# Stage 3–4
+lab tokens rollout advance                    # 10→25→50→full
+lab tokens rollout rollback --reason "p95"
+lab tokens rollout drill                      # test one-switch path
+
+# Multi-agent isolation
+lab graph breaker trip --role implementer --reason "cascade"
+lab graph breaker reset --role implementer
+lab graph breaker status
+```
+
+Compat wrappers: `lab tokens canary *` maps onto rollout (promote → advance, not jump-to-full).
+
+---
+
+## Window promotion pack
+
+Advance only if **all** hold for the stage window (not a single snapshot):
+
+| Metric | Default gate |
+|--------|----------------|
+| Task success | ≥ baseline − 2pp |
+| Human intervention | ≤ baseline + 2pp |
+| p95 latency (proxy) | ≤ baseline × **1.15** |
+| Cost per success | **not worse** than baseline |
+| Hard safety / policy violations | **zero** |
+| Validate/tool fail rate | ≤ baseline + 5pp |
+| Frozen eval | agreement healthy, no deep_violations |
+| Window duration | canary 24h / ramp step 12h / full 48h (lab: `GROK_ROLLOUT_FAST=1`) |
+| Min samples | ≥ 3 completed research logs (lab-scale) |
+
+Any **hard stop** → automatic one-switch rollback.
+
+---
+
+## Practical first thresholds
+
+- Start canary at **1%**, hold until window clean, then bump to **5%**, then ramp.  
+- p95 within **10–20%** of baseline (default 15%).  
+- Cost per success not worse.  
+- Zero hard safety violations.
+
+Override: `~/.grok/lab/rollout_bar.json`
+
+---
+
+## Sticky cohorts
+
+```text
+hash(tenant:session_id) < traffic_frac  →  candidate side
+```
+
+Same session stays on one side (pairs with `lab tokens session lock` mid tool-loop).
+
+**Lab honesty:** “traffic %” is sticky assignment of local sessions/tasks for measurement, not a multi-user CDN. `serve_enabled` defaults **false**.
+
+---
+
+## Circuit breakers (multi-agent)
+
+One bad role does not take the graph down:
+
+```bash
+lab graph breaker trip --role implementer --fallback budgeted
+# route-context for that role forced to budgeted until reset
 ```
 
 ---
 
-## Canary / rollback
+## Rollback
 
-```bash
-lab tokens canary propose --policy-id rules_v2
-lab tokens canary start --traffic-frac 0.05   # requires ready_for_canary
-lab tokens canary status
-lab tokens canary rollback --reason "quality drop"
-lab tokens canary promote                     # requires ready_for_online
-```
+- **One switch:** `lab tokens rollout rollback --reason …`  
+- **Drill:** `lab tokens rollout drill` (must pass in CI/tests)  
+- Restores `baseline_policy_id`, zeros frac, disarms serve  
 
-**Lab default:** canary is **registry + advisory traffic_frac**; it does **not** auto-serve alternate policies until an explicit serve path is wired. Rollback always zeros traffic.
+Future (when cache exists): invalidate candidate-tagged semantic cache on rollback.
 
 ---
 
-## Frozen vs drift (separated)
+## DROP rules
 
-| Artifact | Path | Mutability |
-|----------|------|------------|
-| Frozen suite | `modules/tokens/goldens/router_v1.jsonl` | versioned in git; labels = **current heuristic baseline** (regression), not aspirational targets |
-| Frozen baseline snapshot | `~/.grok/lab/frozen_eval_baseline.json` | set via `--freeze-baseline` |
-| Drift report | `lab tokens eval --drift` | live window vs baseline |
-
-Do not mix: golden edits are intentional suite changes; drift flags are live regression signals.
-
----
-
-## Session locks (tool loops)
-
-Sequential prompt evolution breaks i.i.d. routing. While a tool loop is in flight:
-
-```bash
-lab tokens session lock --reason tool_loop --mode medium
-# … tools …
-lab tokens session unlock
-```
-
-`lab tokens route` respects lock: pins `locked_mode` when set (unless `--force-mode`).
-
----
-
-## Fallback chaos failure budget
-
-LEAD recover failures count toward `max_fallback_chaos_fail_rate`.  
-Sample intentionally:
-
-```bash
-lab research recover <task_id> --cmd "false"   # expect fail path
-# then real validate cmd
-```
-
----
-
-## DROP rules (hard)
-
-1. **Do not** train heavy local heads until `ready_for_online`.  
-2. **Do not** serve bandit/alternate policy without canary + rollback.  
-3. **Do not** treat single-price λ as a blind day-one rule for all modes — calibrate under session locks and budgets (`GROK_TOKEN_LAMBDA` is a control signal).  
+1. No heavy local heads until shadow volume/join + frozen + windowed stages allow.  
+2. No jump from canary to full — use `advance`.  
+3. λ remains a calibrated control signal under session locks.  
 4. Observation precedes influence.
 
 ---
 
-## λ as control signal
+## Related
 
-```text
-EV = reward − λ · kilotokens
-```
-
-λ is **tunable**, not a sacred constant. High λ → quality-starved / raise budget or fix under-routing; λ≈0 → slack. Online dual control only in phase 4 after gates.
+| Doc | Role |
+|-----|------|
+| `docs/TOKEN-AWARE-CONTROL-PLANE.md` | L1 EV policy |
+| `docs/research/GRAPH-CONTEXT-ROUTING.md` | L2 context carriage |
+| `modules/tokens/rollout.py` | stage machine |
+| `modules/graph/breaker.py` | role isolation |

@@ -25,14 +25,11 @@ from tokens.shadow import ShadowStore
 from tokens.session_lock import apply_lock_to_route, acquire_lock, release_lock, get_lock
 from tokens.gates import (
     evaluate_graduation,
-    canary_propose,
-    canary_start,
-    canary_rollback,
-    canary_promote,
     load_canary,
     load_data_bar,
 )
 from tokens.eval_router import eval_frozen, eval_drift, freeze_baseline
+from tokens import rollout as rollout_mod
 
 
 def _print_decision(d, as_json: bool) -> None:
@@ -159,6 +156,10 @@ def cmd_route(args: argparse.Namespace) -> int:
 
 def cmd_shadow(args: argparse.Namespace) -> int:
     store = ShadowStore()
+    if getattr(args, "shadow_cmd", None) == "compare" or getattr(args, "compare", False):
+        out = rollout_mod.shadow_compare(limit=args.limit)
+        print(json.dumps(out, indent=2))
+        return 0 if out.get("similar_enough") else 1
     if args.stats or args.shadow_cmd == "stats":
         print(json.dumps(store.stats(), indent=2))
         return 0
@@ -256,19 +257,17 @@ TOKEN AWARENESS IS THE OPERATING POLICY (Grok Star Lab / Grok Build)
 7. Distill is gated by lab sqc loop (Loop 3) — quality_sufficient required.
 8. Shadow dual-log on every route (log-only); serve baseline until gates pass.
 9. Multi-agent: optimize context carriage (lab graph) under per-node budgets.
-10. Observation precedes influence: shadow → frozen golden/drift → canary → online.
+10. Four-stage rollout: shadow → canary 1–5% → ramp 10/25/50 → full.
 11. Session locks pin mode during tool loops (no i.i.d. thrash mid-loop).
+12. Graph circuit breakers isolate one bad agent/role.
 
 CLI:
   lab tokens route "your task"
-  lab tokens complete --audit-id ID --actual-tokens N --quality 0.0-1.0
-  lab tokens audit --stats
-  lab tokens shadow stats
-  lab tokens eval | eval --drift | gates | canary …
+  lab tokens shadow compare
+  lab tokens eval | gates
+  lab tokens rollout status|start|check|advance|rollback|drill
   lab tokens session lock|unlock|status
-  lab tokens distill          # requires last lab sqc loop pass
-  lab graph route-context --role …  # L2 RCR-style context routing
-  lab research kpi            # Loop 4 board
+  lab graph breaker trip|reset|status
   docs/research/CLOSED-LOOP-GATES.md
 """.strip()
     print(text)
@@ -338,35 +337,79 @@ def cmd_gates(args: argparse.Namespace) -> int:
 
 
 def cmd_canary(args: argparse.Namespace) -> int:
+    """Thin wrapper over four-stage rollout (compat)."""
     sub = args.canary_cmd
     if sub == "status" or sub is None:
-        st = load_canary()
-        bar = load_data_bar()
-        out = {"state": st, "bar_canary_max_frac": bar.get("canary_max_traffic_frac")}
-        print(json.dumps(out, indent=2) if args.json else json.dumps(out, indent=2))
+        print(json.dumps(rollout_mod.status(), indent=2))
         return 0
     if sub == "propose":
-        st = canary_propose(args.policy_id, notes=args.notes or "")
+        st = rollout_mod.propose(args.policy_id, notes=args.notes or "")
         print(json.dumps(st, indent=2))
         return 0
     if sub == "start":
-        frozen = eval_frozen()
-        res = canary_start(
-            traffic_frac=args.traffic_frac,
+        # mark shadow_ok then canary
+        rollout_mod.mark_shadow_ok(force=args.force)
+        res = rollout_mod.start_canary(
+            frac=getattr(args, "traffic_frac", None),
             force=args.force,
-            golden_agreement=frozen.get("agreement"),
+            serve=getattr(args, "serve", False),
         )
         print(json.dumps(res, indent=2))
         return 0 if res.get("ok") else 2
     if sub == "rollback":
-        st = canary_rollback(reason=args.reason or "")
+        st = rollout_mod.rollback(reason=args.reason or "")
         print(json.dumps(st, indent=2))
         return 0
     if sub == "promote":
-        res = canary_promote(force=args.force)
+        # maps to advance (no jump to full)
+        res = rollout_mod.advance(force=args.force)
         print(json.dumps(res, indent=2))
         return 0 if res.get("ok") else 2
     print("error: unknown canary subcommand", file=sys.stderr)
+    return 2
+
+
+def cmd_rollout(args: argparse.Namespace) -> int:
+    sub = args.rollout_cmd
+    if sub == "status":
+        print(json.dumps(rollout_mod.status(), indent=2))
+        return 0
+    if sub == "propose":
+        st = rollout_mod.propose(args.policy_id, notes=args.notes or "")
+        print(json.dumps(st, indent=2))
+        return 0
+    if sub == "shadow-ok":
+        res = rollout_mod.mark_shadow_ok(force=args.force)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("ok") else 2
+    if sub == "start":
+        if getattr(args, "policy_id", None):
+            rollout_mod.propose(args.policy_id)
+        rollout_mod.mark_shadow_ok(force=args.force)
+        res = rollout_mod.start_canary(
+            frac=args.frac, force=args.force, serve=args.serve
+        )
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("ok") else 2
+    if sub == "check":
+        res = rollout_mod.check_and_maybe_rollback()
+        print(json.dumps(res, indent=2))
+        if res.get("rolled_back"):
+            return 3
+        return 0 if res.get("ok") else 1
+    if sub == "advance":
+        res = rollout_mod.advance(force=args.force)
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("ok") else 2
+    if sub == "rollback":
+        st = rollout_mod.rollback(reason=args.reason or "")
+        print(json.dumps(st, indent=2))
+        return 0
+    if sub == "drill":
+        res = rollout_mod.drill()
+        print(json.dumps(res, indent=2))
+        return 0 if res.get("ok") else 1
+    print("error: rollout status|propose|shadow-ok|start|check|advance|rollback|drill", file=sys.stderr)
     return 2
 
 
@@ -420,6 +463,9 @@ def main(argv: Optional[list] = None) -> int:
     sh_ls.add_argument("--limit", type=int, default=20)
     sh_ls.add_argument("--json", action="store_true")
     sh_ls.set_defaults(func=cmd_shadow, stats=False)
+    sh_cmp = sh_sub.add_parser("compare", help="Stage-1 similarity: served vs shadow")
+    sh_cmp.add_argument("--limit", type=int, default=100)
+    sh_cmp.set_defaults(func=cmd_shadow, shadow_cmd="compare", stats=False, compare=True)
     sh.add_argument("--stats", action="store_true")
     sh.add_argument("--limit", type=int, default=20)
     sh.add_argument("--json", action="store_true")
@@ -483,8 +529,9 @@ def main(argv: Optional[list] = None) -> int:
     cy_pr.add_argument("--notes", default="")
     cy_pr.set_defaults(func=cmd_canary, canary_cmd="propose")
     cy_go = cy_sub.add_parser("start")
-    cy_go.add_argument("--traffic-frac", type=float, default=0.05)
+    cy_go.add_argument("--traffic-frac", type=float, default=0.01)
     cy_go.add_argument("--force", action="store_true")
+    cy_go.add_argument("--serve", action="store_true")
     cy_go.set_defaults(func=cmd_canary, canary_cmd="start")
     cy_rb = cy_sub.add_parser("rollback")
     cy_rb.add_argument("--reason", default="")
@@ -493,6 +540,34 @@ def main(argv: Optional[list] = None) -> int:
     cy_pm.add_argument("--force", action="store_true")
     cy_pm.set_defaults(func=cmd_canary, canary_cmd="promote")
     cy.set_defaults(func=cmd_canary, canary_cmd="status")
+
+    ro = sub.add_parser("rollout", help="Four-stage: shadow→canary→ramp→full")
+    ro_sub = ro.add_subparsers(dest="rollout_cmd", required=True)
+    ro_st = ro_sub.add_parser("status")
+    ro_st.set_defaults(func=cmd_rollout, rollout_cmd="status")
+    ro_pr = ro_sub.add_parser("propose")
+    ro_pr.add_argument("--policy-id", required=True)
+    ro_pr.add_argument("--notes", default="")
+    ro_pr.set_defaults(func=cmd_rollout, rollout_cmd="propose")
+    ro_so = ro_sub.add_parser("shadow-ok")
+    ro_so.add_argument("--force", action="store_true")
+    ro_so.set_defaults(func=cmd_rollout, rollout_cmd="shadow-ok")
+    ro_go = ro_sub.add_parser("start")
+    ro_go.add_argument("--policy-id", default=None, help="optional; use propose first")
+    ro_go.add_argument("--frac", type=float, default=None)
+    ro_go.add_argument("--force", action="store_true")
+    ro_go.add_argument("--serve", action="store_true")
+    ro_go.set_defaults(func=cmd_rollout, rollout_cmd="start")
+    ro_ck = ro_sub.add_parser("check")
+    ro_ck.set_defaults(func=cmd_rollout, rollout_cmd="check")
+    ro_ad = ro_sub.add_parser("advance")
+    ro_ad.add_argument("--force", action="store_true")
+    ro_ad.set_defaults(func=cmd_rollout, rollout_cmd="advance")
+    ro_rb = ro_sub.add_parser("rollback")
+    ro_rb.add_argument("--reason", default="")
+    ro_rb.set_defaults(func=cmd_rollout, rollout_cmd="rollback")
+    ro_dr = ro_sub.add_parser("drill")
+    ro_dr.set_defaults(func=cmd_rollout, rollout_cmd="drill")
 
     se = sub.add_parser("session", help="Session lock for in-flight tool loops")
     se_sub = se.add_subparsers(dest="session_cmd", required=True)
