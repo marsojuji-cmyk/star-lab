@@ -67,6 +67,8 @@ def ensure_lab_dirs() -> List[Path]:
         root / "imagine" / "runs",
         root / "gym",
         root / "gym" / "results",
+        root / "bodies",
+        root / "packets",
     ]
     ensured: List[Path] = []
     for path in subdirs:

@@ -258,9 +258,13 @@ class ResearchLog:
             p["validation"]["sqc_loop_id"] = sqc_loop_id
         if sqc_quality_ok is not None:
             p["validation"]["sqc_quality_ok"] = sqc_quality_ok
-        p["recovery"]["triggered"] = recovery_triggered
+        # Preserve LEAD recover() flag: complete --recovery may be omitted by operators.
+        prev_trig = bool((p.get("recovery") or {}).get("triggered"))
+        p.setdefault("recovery", {})
+        p["recovery"]["triggered"] = bool(recovery_triggered) or prev_trig
         if recovery_notes:
-            p["recovery"]["notes"] = recovery_notes
+            prev_notes = p["recovery"].get("notes") or ""
+            p["recovery"]["notes"] = (prev_notes + "\n" + recovery_notes).strip()
         latency = now - float(p.get("ts_start") or now)
         p["metrics"]["latency_s"] = round(latency, 3)
         tok = p.get("actual_tokens")

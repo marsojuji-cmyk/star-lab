@@ -27,17 +27,30 @@ from typing import Any, Dict, List, Optional, Tuple
 _CHARS_PER_TOKEN = 4.0
 
 # Heuristic feature weights for remaining-horizon boost (tokens).
+# Tuned 2026-08-02 from joined audits: design docs under-routed as short
+# (pred ~1k, actual 12–28k) dominated MAE — raise design/architecture floor.
 _FEATURE_BOOSTS: List[Tuple[str, re.Pattern, float]] = [
-    ("multi_step", re.compile(r"\b(step[- ]by[- ]step|plan|design|architect|migrate|refactor)\b", re.I), 800),
-    ("debug", re.compile(r"\b(debug|root[- ]cause|investigate|why (is|does)|fails?|error)\b", re.I), 600),
-    ("implement", re.compile(r"\b(implement|build|write|create|scaffold|code)\b", re.I), 500),
-    ("review", re.compile(r"\b(review|audit|security|threat)\b", re.I), 400),
+    (
+        "architecture_doc",
+        re.compile(
+            r"\b(architecture|design doc|design review|circuit breaker|"
+            r"mind\s*\+\s*body|mind and body|north[- ]star|"
+            r"progressive delivery|system design|spec)\b",
+            re.I,
+        ),
+        4500,
+    ),
+    ("multi_step", re.compile(r"\b(step[- ]by[- ]step|plan|design|architect|migrate|refactor)\b", re.I), 1800),
+    ("debug", re.compile(r"\b(debug|root[- ]cause|investigate|why (is|does)|fails?|error)\b", re.I), 650),
+    ("implement", re.compile(r"\b(implement|build|write|create|scaffold|code)\b", re.I), 700),
+    ("review", re.compile(r"\b(review|audit|security|threat)\b", re.I), 450),
     ("compare", re.compile(r"\b(compare|trade[- ]?off|alternatives|vs\.?)\b", re.I), 350),
     ("explain", re.compile(r"\b(explain|how does|what is|summar(y|ize))\b", re.I), 150),
     ("local_only", re.compile(r"\b(status|doctor|list|help|version|open dashboard)\b", re.I), -400),
     ("one_shot", re.compile(r"\b(rename|typo|one[- ]line|quick|trivial)\b", re.I), -300),
-    ("multi_file", re.compile(r"\b(codebase|entire repo|all files|monorepo)\b", re.I), 700),
-    ("agentic", re.compile(r"\b(subagent|workflow|parallel|multi[- ]agent)\b", re.I), 900),
+    ("multi_file", re.compile(r"\b(codebase|entire repo|all files|monorepo)\b", re.I), 900),
+    ("agentic", re.compile(r"\b(subagent|workflow|parallel|multi[- ]agent)\b", re.I), 1200),
+    ("e2e_factory", re.compile(r"\b(e2e|end[- ]to[- ]end|factory|forge run|full loop)\b", re.I), 600),
 ]
 
 
@@ -84,7 +97,29 @@ def _heuristic_horizon(task: str, context_chars: int = 0) -> HorizonEstimate:
     ask_boost = min(1500, prompt_tok * 2)
     predicted = int(max(64, base + boost + ask_boost))
     # Soft cap: free offline policy shouldn't assume infinite budgets.
-    predicted = min(predicted, 12000)
+    predicted = min(predicted, 24000)
+
+    # Joined-audit residual: only scale long-regime design/build (avoids
+    # inflating ops/cheap predictions and blowing MAE the other way).
+    # Only architecture-class residuals — review/debug alone must not inflate MAE.
+    longish = any(
+        d.get("token_or_pattern") in ("architecture_doc", "multi_step")
+        for d in drivers
+    )
+    residual = _audit_residual_scale() if longish else None
+    if residual is not None and residual > 1.05:
+        scaled = int(predicted * min(residual, 2.0))
+        if scaled != predicted:
+            drivers.append(
+                {
+                    "token_or_pattern": "audit_residual_scale",
+                    "delta_tokens": scaled - predicted,
+                    "regime": "long",
+                    "matched": True,
+                    "scale": round(residual, 3),
+                }
+            )
+            predicted = min(scaled, 24000)
 
     # Confidence: more matched drivers → higher; extremes lower.
     conf = 0.45 + 0.08 * min(6, len(drivers))
@@ -107,6 +142,54 @@ def _heuristic_horizon(task: str, context_chars: int = 0) -> HorizonEstimate:
         remaining_value=round(remaining_value, 2),
         notes="Free offline estimator; plug GROK_LENVM_CMD for trained LenVM.",
     )
+
+
+def _audit_residual_scale() -> Optional[float]:
+    """
+    Median (actual/predicted) over completed audits with positive pred.
+    Used as a gentle multiplicative correction when horizons systematically low.
+    Cached per process; fails closed (None) if store empty/unavailable.
+    """
+    global _RESIDUAL_CACHE
+    if _RESIDUAL_CACHE is not None:
+        return _RESIDUAL_CACHE[0]
+    try:
+        from .audit import AuditStore
+
+        rows = AuditStore().recent(limit=200)
+        ratios: List[float] = []
+        for r in rows:
+            pred = r.get("predicted_horizon")
+            actual = r.get("actual_tokens")
+            if pred is None or actual is None:
+                continue
+            try:
+                p = float(pred)
+                a = float(actual)
+            except (TypeError, ValueError):
+                continue
+            if p <= 0 or a < 0:
+                continue
+            # Ignore pure local zeros / infinite ratios
+            if a == 0 and p < 100:
+                continue
+            ratios.append(a / p)
+        if len(ratios) < 8:
+            _RESIDUAL_CACHE = (None,)
+            return None
+        ratios.sort()
+        mid = ratios[len(ratios) // 2]
+        # Only scale up under-prediction; never shrink (over-pred is safer for EV)
+        scale = mid if mid > 1.0 else None
+        _RESIDUAL_CACHE = (scale,)
+        return scale
+    except Exception:
+        _RESIDUAL_CACHE = (None,)
+        return None
+
+
+# (scale,) tuple so None is a valid cached miss
+_RESIDUAL_CACHE: Optional[Tuple[Optional[float]]] = None
 
 
 def _try_lenvm_probe(task: str) -> Optional[HorizonEstimate]:

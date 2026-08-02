@@ -94,6 +94,20 @@ def _tag_task(task: str) -> List[str]:
         )
     ):
         tags.append("ops_local")
+    if any(
+        k in t
+        for k in (
+            "architecture",
+            "design doc",
+            "design review",
+            "circuit breaker",
+            "system design",
+            "mind + body",
+            "mind and body",
+            "progressive delivery",
+        )
+    ):
+        tags.append("architecture")
     if any(k in t for k in ("implement", "build", "fix", "refactor", "design")):
         tags.append("build")
     if any(k in t for k in ("debug", "investigate", "root cause")):
@@ -137,6 +151,17 @@ def _reward_for_mode(mode: str, tags: List[str], horizon: int) -> float:
         if mode == MODE_SHORT:
             return 0.97
         return 0.98  # diminishing returns for overkill
+
+    if "architecture" in tags or horizon >= 4000:
+        # Design-doc class work: short under-routes hurt MAE and quality.
+        # Deep must win EV vs medium on agentic/architecture (see route floor).
+        if mode == MODE_DEEP:
+            return 0.99
+        if mode == MODE_MEDIUM:
+            return 0.78
+        if mode == MODE_SHORT:
+            return 0.40
+        return 0.15
 
     if "agentic" in tags or "debug" in tags or horizon >= 2500:
         if mode == MODE_DEEP:
@@ -307,7 +332,15 @@ def route_task(
     candidates = [MODE_LOCAL, MODE_SHORT, MODE_MEDIUM, MODE_DEEP]
     scored: List[tuple] = []
     for mode in candidates:
-        ev = expected_value(mode, tags, h, lam=lam)
+        # Architecture docs need full deep budget; price deep at budget not full horizon
+        # so EV does not force medium under-routing (joined-audit lesson).
+        if "architecture" in tags and mode == MODE_DEEP:
+            reward = _reward_for_mode(mode, tags, h)
+            spend = float(DEFAULT_BUDGETS[MODE_DEEP])
+            cost = lam * (spend / 1000.0)
+            ev = {"reward": reward, "cost": cost, "ev": reward - cost, "spend_tokens": spend}
+        else:
+            ev = expected_value(mode, tags, h, lam=lam)
         scored.append((mode, ev))
 
     local_ev = next(ev for m, ev in scored if m == MODE_LOCAL)
@@ -362,6 +395,23 @@ def route_task(
         )
         best_mode = MODE_LOCAL
         best_ev = expected_value(best_mode, tags, h, lam=lam)
+
+    # Architecture + agentic / long horizon: floor to deep (joined-audit under-route fix).
+    if (
+        "architecture" in tags
+        and ("agentic" in tags or h >= 6000)
+        and best_mode != MODE_DEEP
+        and "ops_local" not in tags
+        and "cheap" not in tags
+    ):
+        reasons.append(
+            "floor: architecture+agentic/long → deep (avoid design under-route)"
+        )
+        best_mode = MODE_DEEP
+        reward = _reward_for_mode(MODE_DEEP, tags, h)
+        spend = float(DEFAULT_BUDGETS[MODE_DEEP])
+        cost = lam * (spend / 1000.0)
+        best_ev = {"reward": reward, "cost": cost, "ev": reward - cost, "spend_tokens": spend}
 
     reasons.append(f"selected={best_mode} ev={best_ev['ev']:.4f} reward={best_ev['reward']:.3f} cost={best_ev['cost']:.4f}")
 

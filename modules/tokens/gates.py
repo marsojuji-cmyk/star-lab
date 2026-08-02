@@ -160,11 +160,15 @@ def _fallback_chaos_rate() -> Optional[float]:
         from research.logstore import ResearchLog
 
         log = ResearchLog()
-        rows = log.list(limit=100, status="completed")
-        recovered = [r for r in rows if (r.get("recovery") or {}).get("triggered")]
+        # Include aborted (failed task after recover) — they still have retry_ok.
+        rows = log.list(limit=150)
+        recovered = []
+        for r in rows:
+            rec = r.get("recovery") or {}
+            if rec.get("triggered") or "retry_ok" in rec:
+                recovered.append(r)
         if not recovered:
             return None  # no data → skip check
-        # if retry_ok stored
         fails = 0
         n = 0
         for r in recovered:

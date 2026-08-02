@@ -649,6 +649,16 @@ def run_command(
 
     store.finish_run(run_id, status, exit_code, duration_ms)
 
+    # Body contact: forge_exit → events + ledger obligation when body resolves (PR-B2).
+    _try_body_forge_exit(
+        project=project,
+        exp_name=exp_name,
+        run_id=run_id,
+        exit_code=exit_code if exit_code is not None else 1,
+        status=status,
+        tags=list(tags) if tags else [],
+    )
+
     # Showcase tag hook (optional; showroom may not be installed yet).
     tags_list = list(tags) if tags else []
     if status == "completed" and "showcase" in tags_list:
@@ -660,6 +670,47 @@ def run_command(
         file=sys.stderr,
     )
     return int(exit_code if exit_code is not None else 1)
+
+
+def _try_body_forge_exit(
+    *,
+    project: Optional[str],
+    exp_name: str,
+    run_id: str,
+    exit_code: int,
+    status: str,
+    tags: List[str],
+) -> None:
+    """Best-effort body ingest after forge run (never raises into forge path)."""
+    try:
+        mod_root = str(repo_root() / "modules")
+        if mod_root not in sys.path:
+            sys.path.insert(0, mod_root)
+        from body.resolve import resolve_body
+        from body.events import ingest
+
+        body = resolve_body(project=project, cwd=os.getcwd())
+        if not body:
+            return
+        recover_already = "recovery" in (tags or []) or bool(
+            os.environ.get("GROK_FORGE_RECOVER")
+        )
+        ingest(
+            body.body_id,
+            channel="forge_exit",
+            type_="completed" if exit_code == 0 else "nonzero",
+            payload={
+                "exit_code": exit_code,
+                "status": status,
+                "exp": exp_name,
+                "run_id": run_id,
+                "project": project,
+                "recover_already": recover_already,
+            },
+            dispatch=True,
+        )
+    except Exception as exc:
+        print("forge: body forge_exit hook skipped: %s" % exc, file=sys.stderr)
 
 
 def _try_showcase_capture(run_id: str) -> None:

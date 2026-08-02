@@ -64,6 +64,8 @@ Grok Star Lab  (lab)
   lab research …           golden log + packets + LEAD recover + KPIs
   lab graph …              token-constrained context routing (L2 / RCR-style)
   lab weights …            safetensors interchange (validate|convert|publish-check)
+  lab body …               body registry (identity/property/contact/limits)
+  lab resilience …         agentic circuit breakers (status|record|tick)
 
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
@@ -72,6 +74,8 @@ Annotation quality: lab sqc loop  (Loop 3 gate before distill)
 Research log: lab research start|packet|recover|complete|kpi
 Graph context: lab graph route-context|log-node|stats|ablate
 Weights:      lab weights layout|validate|convert  (publish safetensors only)
+Body:         lab body init|list|status|resolve|ledger|ingest
+Resilience:   lab resilience status|record|tick
 EOF
 }
 
@@ -149,6 +153,12 @@ case "$cmd" in
     ;;
   weights|weight)
     _py modules/weights/cli.py "$@"
+    ;;
+  body)
+    _py modules/body/cli.py "$@"
+    ;;
+  resilience)
+    _py modules/resilience/cli.py "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2
