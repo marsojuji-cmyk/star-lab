@@ -25,6 +25,7 @@ Use this as a fair scorecard. Same machine. Same ask. Different agents.
 | **Runnable demo app** scaffolded | `~/Projects/claude-compare-demo` | |
 | Honest about limits (sudo, gh auth) | Documented | |
 | Re-runnable proof command | `lab doctor` / `docs/PROOF.txt` | |
+| Token mass vs unbounded agent | **102×** on suite (`lab tokens savings vs-claude`, pack=aggressive) | Paste Claude Code usage on same suite |
 
 ## Scorecard — Grok Star Lab (modules)
 

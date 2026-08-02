@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -30,6 +31,7 @@ from tokens.gates import (
 )
 from tokens.eval_router import eval_frozen, eval_drift, freeze_baseline
 from tokens import rollout as rollout_mod
+from tokens.savings import run_suite, report_history, compare_task
 
 
 def _print_decision(d, as_json: bool) -> None:
@@ -260,15 +262,16 @@ TOKEN AWARENESS IS THE OPERATING POLICY (Grok Star Lab / Grok Build)
 10. Four-stage rollout: shadow → canary 1–5% → ramp 10/25/50 → full.
 11. Session locks pin mode during tool loops (no i.i.d. thrash mid-loop).
 12. Graph circuit breakers isolate one bad agent/role.
+13. Savings vs Claude-unbounded: lab tokens savings suite (target 100× on suite).
 
 CLI:
   lab tokens route "your task"
   lab tokens shadow compare
   lab tokens eval | gates
+  lab tokens savings suite|vs-claude|report
   lab tokens rollout status|start|check|advance|rollback|drill
   lab tokens session lock|unlock|status
-  lab graph breaker trip|reset|status
-  docs/research/CLOSED-LOOP-GATES.md
+  docs/TOKEN-SAVINGS-100X.md
 """.strip()
     print(text)
     return 0
@@ -410,6 +413,81 @@ def cmd_rollout(args: argparse.Namespace) -> int:
         print(json.dumps(res, indent=2))
         return 0 if res.get("ok") else 1
     print("error: rollout status|propose|shadow-ok|start|check|advance|rollback|drill", file=sys.stderr)
+    return 2
+
+
+def cmd_savings(args: argparse.Namespace) -> int:
+    sub = args.savings_cmd
+    if sub in ("suite", "vs-claude"):
+        baseline = "claude_unbounded" if sub == "vs-claude" else (args.baseline or "claude_unbounded")
+        if args.pack:
+            os.environ["GROK_TOKEN_PACK"] = args.pack
+        out = run_suite(baseline_id=baseline, persist=not args.no_persist)
+        if args.json:
+            # trim reasons noise
+            slim = dict(out)
+            for r in slim.get("rows") or []:
+                r.pop("reasons", None)
+            print(json.dumps(slim, indent=2))
+        else:
+            print("═══ Token savings suite ═══")
+            print(f"baseline:     {out['baseline_id']}")
+            print(f"pack:         {out['pack_profile']}")
+            print(f"tasks:        {out['n_tasks']}")
+            print(f"sum_lab:      {out['sum_lab_spend']} tokens (predicted)")
+            print(f"sum_baseline: {out['sum_base_spend']} tokens (predicted)")
+            print(f"tokens_saved: {out['tokens_saved']}")
+            ratio = out.get("total_ratio")
+            if out.get("total_ratio_inf"):
+                print("total_ratio:  ∞ (all lab local)")
+            else:
+                print(f"total_ratio:  {ratio:.1f}×  (baseline / lab)")
+            if out.get("geo_mean_ratio") is not None:
+                print(f"geo_mean:     {out['geo_mean_ratio']:.1f}×")
+            print(f"hit_100x:     {out['hit_100x']}")
+            print("by_tag:")
+            for tag, b in (out.get("by_tag") or {}).items():
+                if b.get("ratio_inf"):
+                    rs = "∞"
+                elif b.get("ratio") is not None:
+                    rs = f"{b['ratio']:.1f}×"
+                else:
+                    rs = "n/a"
+                print(f"  {tag:8} n={b['n']} lab={int(b['lab_spend'])} base={int(b['base_spend'])} ratio={rs}")
+            print("sample rows (first 8):")
+            for r in (out.get("rows") or [])[:8]:
+                rt = "∞" if r.get("ratio_inf") else (f"{r['ratio']:.0f}×" if r.get("ratio") else "?")
+                print(
+                    f"  [{r.get('suite_tag')}] mode={r['lab_mode']:6} "
+                    f"lab={r['lab_spend']:5} base={r['base_spend']:5} {rt}  {r['task'][:50]}"
+                )
+            print(f"claim: {out.get('claim')}")
+            print("Doc: docs/TOKEN-SAVINGS-100X.md")
+        if out.get("hit_100x"):
+            return 0
+        return 1
+    if sub == "report":
+        h = report_history(limit=args.limit)
+        if args.json:
+            print(json.dumps(h, indent=2))
+        else:
+            print(f"═══ Savings history (n={h.get('n')}) ═══")
+            for r in h.get("recent") or []:
+                tr = r.get("total_ratio")
+                trs = f"{tr:.1f}×" if tr is not None else "∞/n/a"
+                print(
+                    f"  hit={r.get('hit_100x')} ratio={trs} "
+                    f"lab={r.get('sum_lab_spend')} base={r.get('sum_base_spend')} "
+                    f"pack={r.get('pack_profile')} base_id={r.get('baseline_id')}"
+                )
+            if h.get("path"):
+                print(f"log: {h['path']}")
+        return 0
+    if sub == "compare":
+        row = compare_task(args.task, baseline_id=args.baseline or "claude_unbounded")
+        print(json.dumps(row, indent=2) if args.json else row)
+        return 0
+    print("error: savings suite|vs-claude|report|compare", file=sys.stderr)
     return 2
 
 
@@ -568,6 +646,29 @@ def main(argv: Optional[list] = None) -> int:
     ro_rb.set_defaults(func=cmd_rollout, rollout_cmd="rollback")
     ro_dr = ro_sub.add_parser("drill")
     ro_dr.set_defaults(func=cmd_rollout, rollout_cmd="drill")
+
+    sav = sub.add_parser("savings", help="Token savings vs unbounded / Claude-style baseline")
+    sav_sub = sav.add_subparsers(dest="savings_cmd", required=True)
+    sav_s = sav_sub.add_parser("suite", help="Run stratified savings suite")
+    sav_s.add_argument("--baseline", default="claude_unbounded")
+    sav_s.add_argument("--pack", choices=["balanced", "aggressive"], default=None)
+    sav_s.add_argument("--no-persist", action="store_true")
+    sav_s.add_argument("--json", action="store_true")
+    sav_s.set_defaults(func=cmd_savings, savings_cmd="suite")
+    sav_c = sav_sub.add_parser("vs-claude", help="Alias: suite vs claude_unbounded")
+    sav_c.add_argument("--pack", choices=["balanced", "aggressive"], default="aggressive")
+    sav_c.add_argument("--no-persist", action="store_true")
+    sav_c.add_argument("--json", action="store_true")
+    sav_c.set_defaults(func=cmd_savings, savings_cmd="vs-claude", baseline="claude_unbounded")
+    sav_r = sav_sub.add_parser("report", help="History of suite runs")
+    sav_r.add_argument("--limit", type=int, default=10)
+    sav_r.add_argument("--json", action="store_true")
+    sav_r.set_defaults(func=cmd_savings, savings_cmd="report")
+    sav_x = sav_sub.add_parser("compare", help="One task lab vs baseline")
+    sav_x.add_argument("task")
+    sav_x.add_argument("--baseline", default="claude_unbounded")
+    sav_x.add_argument("--json", action="store_true")
+    sav_x.set_defaults(func=cmd_savings, savings_cmd="compare")
 
     se = sub.add_parser("session", help="Session lock for in-flight tool loops")
     se_sub = se.add_subparsers(dest="session_cmd", required=True)

@@ -195,6 +195,11 @@ ROI_proxy = sum(tokens_saved on successes) / tokens_spent_on_router_and_shadow
 
 ---
 
+## 100× program (Claude-style baseline)
+
+See **`docs/TOKEN-SAVINGS-100X.md`** and `lab tokens savings vs-claude`.  
+That suite measures system multiplier vs deep+fat unbounded packing (Claude-pattern waste), not vs an already-routed peer.
+
 ## Related lab surfaces
 
 | Need | Command / doc |

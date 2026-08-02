@@ -77,7 +77,22 @@ class RouteDecision:
 def _tag_task(task: str) -> List[str]:
     t = task.lower()
     tags: List[str] = []
-    if any(k in t for k in ("status", "doctor", "list", "help", "version")):
+    if any(
+        k in t
+        for k in (
+            "status",
+            "doctor",
+            "list",
+            "help",
+            "version",
+            "policy",
+            "kpi",
+            "stats",
+            "layout",
+            "audit --stats",
+            "savings",
+        )
+    ):
         tags.append("ops_local")
     if any(k in t for k in ("implement", "build", "fix", "refactor", "design")):
         tags.append("build")
@@ -178,9 +193,20 @@ def _role_budgets(max_context: int, n_subagents: int) -> Dict[str, int]:
     return {k: max(64, int(max_context * v)) for k, v in shares.items()}
 
 
+def _pack_mode() -> str:
+    """balanced (default) | aggressive (100× program) | legacy (alias balanced)."""
+    m = os.environ.get("GROK_TOKEN_PACK", "balanced").lower()
+    if m in ("legacy", "default"):
+        return "balanced"
+    if m in ("aggressive", "100x", "tight"):
+        return "aggressive"
+    return "balanced"
+
+
 def _packing_plan(mode: str, horizon: int, context_chars: int) -> Dict[str, Any]:
     """Govern prompt packing / retrieval sizing relative to budget."""
     budget = DEFAULT_BUDGETS[mode]
+    aggressive = _pack_mode() == "aggressive"
     if mode == MODE_LOCAL:
         return {
             "max_context_tokens": 0,
@@ -190,43 +216,54 @@ def _packing_plan(mode: str, horizon: int, context_chars: int) -> Dict[str, Any]
             "strategy": "no_model_call",
             "role_budgets": {},
             "context_routing": "none",
+            "pack_profile": _pack_mode(),
         }
     # Reserve ~40% of total budget for completion; rest for packed context.
     ctx_budget = int(budget * 1.5)  # allow larger context than completion
     if mode == MODE_SHORT:
-        max_ctx = min(1500, ctx_budget)
+        max_ctx = min(512 if aggressive else 1500, ctx_budget)
         n_sub = 0
         return {
             "max_context_tokens": max_ctx,
-            "retrieval_k": 2,
+            "retrieval_k": 1 if aggressive else 2,
             "subagents": n_sub,
             "continuation": False,
-            "strategy": "tight_pack",
+            "strategy": "aggressive_tight" if aggressive else "tight_pack",
             "role_budgets": _role_budgets(max_ctx, 0),
             "context_routing": "single_node",
+            "pack_profile": _pack_mode(),
         }
     if mode == MODE_MEDIUM:
-        max_ctx = min(6000, max(ctx_budget, 2000))
-        n_sub = 1 if horizon > 1500 else 0
+        max_ctx = min(2048 if aggressive else 6000, max(ctx_budget, 2000 if not aggressive else 512))
+        if aggressive:
+            max_ctx = min(2048, max(ctx_budget, 512))
+        n_sub = 0 if aggressive else (1 if horizon > 1500 else 0)
+        if not aggressive and horizon > 1500:
+            n_sub = 1
         return {
             "max_context_tokens": max_ctx,
-            "retrieval_k": 6,
+            "retrieval_k": 3 if aggressive else 6,
             "subagents": n_sub,
-            "continuation": horizon > budget * 0.8,
-            "strategy": "balanced_pack",
-            "role_budgets": _role_budgets(max_ctx, max(1, n_sub)),
+            "continuation": (not aggressive) and horizon > budget * 0.8,
+            "strategy": "aggressive_balanced" if aggressive else "balanced_pack",
+            "role_budgets": _role_budgets(max_ctx, max(1, n_sub) if n_sub else 0),
             "context_routing": "role_aware" if n_sub else "single_node",
+            "pack_profile": _pack_mode(),
         }
-    max_ctx = min(24000, max(ctx_budget, 8000))
-    n_sub = 2 if horizon > 3000 else 1
+    max_ctx = min(8192 if aggressive else 24000, max(ctx_budget, 8000 if not aggressive else 2048))
+    if aggressive:
+        # 100× program: hard cap context + no auto subagent fan-out on deep
+        max_ctx = min(2048, max(ctx_budget, 512))
+    n_sub = 0 if aggressive else (2 if horizon > 3000 else 1)
     return {
         "max_context_tokens": max_ctx,
-        "retrieval_k": 12,
+        "retrieval_k": 6 if aggressive else 12,
         "subagents": n_sub,
         "continuation": True,
-        "strategy": "deep_selective_evidence",
+        "strategy": "aggressive_deep" if aggressive else "deep_selective_evidence",
         "role_budgets": _role_budgets(max_ctx, n_sub),
         "context_routing": "role_aware",
+        "pack_profile": _pack_mode(),
     }
 
 
@@ -316,6 +353,14 @@ def route_task(
     if best_mode == MODE_DEEP and ("cheap" in tags or "ops_local" in tags):
         reasons.append("hard block: deep forbidden for cheap/ops_local")
         best_mode = MODE_SHORT if "ops_local" not in tags else MODE_LOCAL
+        best_ev = expected_value(best_mode, tags, h, lam=lam)
+
+    # 100× program: ops_local + small horizon → force local (no model tokens).
+    if "ops_local" in tags and h < 400 and best_mode != MODE_LOCAL:
+        reasons.append(
+            f"hard block: ops_local horizon={h}<400 → local (token savings)"
+        )
+        best_mode = MODE_LOCAL
         best_ev = expected_value(best_mode, tags, h, lam=lam)
 
     reasons.append(f"selected={best_mode} ev={best_ev['ev']:.4f} reward={best_ev['reward']:.3f} cost={best_ev['cost']:.4f}")
