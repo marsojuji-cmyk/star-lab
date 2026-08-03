@@ -15,6 +15,9 @@ _MOD = str(_HERE.parent)
 if _MOD not in sys.path:
     sys.path.insert(0, _MOD)
 
+import os
+from pathlib import Path
+
 from body.store import BodyStore
 from body.resolve import resolve_body, resolve_info
 from body.ledger import list_obligations, close_obligation, append_obligation
@@ -153,7 +156,13 @@ def cmd_events(args: argparse.Namespace) -> int:
 
 
 def cmd_organs(args: argparse.Namespace) -> int:
-    b = load_bindings(args.body_id)
+    from body.organs import ensure_default_organs
+
+    if getattr(args, "grow", False):
+        b = ensure_default_organs(args.body_id)
+        print("organs: grew defaults for %s" % args.body_id)
+    else:
+        b = load_bindings(args.body_id)
     if args.json:
         _print_json(b)
         return 0
@@ -161,7 +170,153 @@ def cmd_organs(args: argparse.Namespace) -> int:
         en = "on" if binding.get("enabled", True) else "off"
         nproc = len(binding.get("procedures") or [])
         print("%s  [%s] procedures=%d" % (name, en, nproc))
+        for proc in binding.get("procedures") or []:
+            mind = "mind" if proc.get("mind") else "mind=false"
+            print("    - %s  trigger=%s  %s" % (proc.get("id"), proc.get("trigger"), mind))
     return 0
+
+
+def cmd_kpi(args: argparse.Namespace) -> int:
+    from body.kpis import body_kpis, all_body_kpis, waste_report
+
+    if args.waste:
+        rep = waste_report()
+        if args.json:
+            _print_json(rep)
+            return 0
+        print("═══ Waste / mode mix ═══")
+        print("totals: %s" % rep.get("totals"))
+        for rec in rep.get("recommendations") or []:
+            print("  · %s" % rec)
+        for b in rep.get("by_body") or []:
+            tok = b.get("tokens") or {}
+            print(
+                "%s  completed=%s success=%s by_mode=%s avg_tok=%s"
+                % (
+                    b.get("body_id"),
+                    tok.get("n_completed"),
+                    tok.get("n_success"),
+                    tok.get("by_mode"),
+                    tok.get("avg_tokens_per_success"),
+                )
+            )
+        return 0
+    if args.body_id in (None, "all", "*"):
+        rows = all_body_kpis()
+        if args.json:
+            _print_json(rows)
+            return 0
+        for k in rows:
+            _print_kpi_human(k)
+        return 0
+    k = body_kpis(args.body_id)
+    if args.json:
+        _print_json(k)
+        return 0
+    _print_kpi_human(k)
+    return 0
+
+
+def _print_kpi_human(k: Dict[str, Any]) -> None:
+    print("═══ Body KPI %s ═══" % k.get("body_id"))
+    if k.get("error"):
+        print("error: %s" % k["error"])
+        return
+    print("forge:     ok=%s fail=%s" % ((k.get("forge") or {}).get("ok"), (k.get("forge") or {}).get("fail")))
+    print("research:  %s" % k.get("research"))
+    print("open_obl:  %s" % k.get("open_obligations"))
+    print("budget:    %s" % k.get("budget"))
+    tok = k.get("tokens") or {}
+    print(
+        "tokens:    completed=%s success=%s avg/success=%s by_mode=%s"
+        % (tok.get("n_completed"), tok.get("n_success"), tok.get("avg_tokens_per_success"), tok.get("by_mode"))
+    )
+
+
+def cmd_outcomes(args: argparse.Namespace) -> int:
+    from body.outcomes import scorecard, all_scorecards
+
+    if args.body_id in (None, "all", "*"):
+        rows = all_scorecards()
+        if args.json:
+            _print_json(rows)
+            return 0
+        print("═══ Body outcome scorecards ═══")
+        print("(north-star: human outcomes / shipped proofs, not module count)")
+        for s in sorted(rows, key=lambda x: -float(x.get("score") or 0)):
+            print(
+                "%s  grade=%s score=%.1f  showroom=%s forge=%s/%s open_obl=%s"
+                % (
+                    s.get("body_id"),
+                    s.get("grade"),
+                    float(s.get("score") or 0),
+                    len((s.get("proofs") or {}).get("showroom_entries") or []),
+                    (s.get("proofs") or {}).get("forge_ok"),
+                    (s.get("proofs") or {}).get("forge_fail"),
+                    (s.get("proofs") or {}).get("open_obligations"),
+                )
+            )
+        return 0
+    s = scorecard(args.body_id)
+    if args.json:
+        _print_json(s)
+        return 0
+    print("═══ Outcome scorecard ═══")
+    print("body:   %s" % s.get("body_id"))
+    print("grade:  %s  score=%.1f" % (s.get("grade"), float(s.get("score") or 0)))
+    print("proofs: %s" % json.dumps(s.get("proofs"), indent=2))
+    return 0
+
+
+def cmd_factory(args: argparse.Namespace) -> int:
+    """Run body-scoped validation (mind=false standing path): forge unittest."""
+    import subprocess
+    from body.store import BodyStore
+    from body.organs import ensure_default_organs
+    from body.events import ingest
+
+    store = BodyStore()
+    body = store.load(args.body_id) or store.load("project:%s" % args.body_id)
+    if not body:
+        print("error: body not found: %s" % args.body_id, file=sys.stderr)
+        return 1
+    ensure_default_organs(body.body_id, store)
+    repo = (body.identity or {}).get("repo_path")
+    if not repo or not Path(repo).expanduser().is_dir():
+        print("error: body has no repo_path", file=sys.stderr)
+        return 2
+    cwd = str(Path(repo).expanduser())
+    cmd = args.cmd or "python3 -m unittest discover -s tests -q"
+    print("factory: body=%s cwd=%s" % (body.body_id, cwd))
+    print("factory: cmd=%s" % cmd)
+    # Prefer lab forge when available for ledger dual-write
+    argv = [
+        "lab",
+        "forge",
+        "run",
+        "--exp",
+        body.name,
+        "--project",
+        body.project_key() or body.name,
+        "--",
+    ] + cmd.split()
+    env = os.environ.copy()
+    env["GROK_BODY"] = body.body_id
+    env["GROK_PROJECT"] = body.project_key() or body.name
+    try:
+        r = subprocess.run(argv, cwd=cwd, env=env)
+        ec = int(r.returncode)
+    except FileNotFoundError:
+        r = subprocess.run(cmd, shell=True, cwd=cwd, env=env)
+        ec = int(r.returncode)
+        ingest(
+            body.body_id,
+            channel="forge_exit",
+            type_="completed" if ec == 0 else "nonzero",
+            payload={"exit_code": ec, "exp": body.name, "source": "body_factory"},
+        )
+    print("factory: exit=%s" % ec)
+    return ec
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -226,7 +381,24 @@ def build_parser() -> argparse.ArgumentParser:
     org = sub.add_parser("organs", help="List organ bindings")
     org.add_argument("body_id")
     org.add_argument("--json", action="store_true")
+    org.add_argument("--grow", action="store_true", help="Merge default standing procedures")
     org.set_defaults(func=cmd_organs)
+
+    kpi = sub.add_parser("kpi", help="Tokens/success and forge KPIs for a body")
+    kpi.add_argument("body_id", nargs="?", default="all")
+    kpi.add_argument("--waste", action="store_true", help="Cross-body waste / mode mix report")
+    kpi.add_argument("--json", action="store_true")
+    kpi.set_defaults(func=cmd_kpi)
+
+    outc = sub.add_parser("outcomes", help="Human outcome scorecards (proofs, not modules)")
+    outc.add_argument("body_id", nargs="?", default="all")
+    outc.add_argument("--json", action="store_true")
+    outc.set_defaults(func=cmd_outcomes)
+
+    fac = sub.add_parser("factory", help="Body-scoped forge/unittest (mind=false standing path)")
+    fac.add_argument("body_id")
+    fac.add_argument("--cmd", default=None, help="Override validation command")
+    fac.set_defaults(func=cmd_factory)
 
     return p
 

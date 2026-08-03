@@ -26,12 +26,49 @@ DEFAULT_BINDINGS: Dict[str, Any] = {
                 "action": "escalate_note",
                 "mind": False,
             },
+            {
+                "id": "on_ok_close_soft",
+                "trigger": "forge_exit.completed",
+                "action": "note_success",
+                "mind": False,
+            },
         ],
     },
     "ship": {
         "module": "ship",
         "enabled": True,
-        "procedures": [],
+        "procedures": [
+            {
+                "id": "on_ship_ok_note",
+                "trigger": "ship_check.ok",
+                "action": "note_ship",
+                "mind": False,
+            }
+        ],
+    },
+    "research": {
+        "module": "research",
+        "enabled": True,
+        "procedures": [
+            {
+                "id": "on_research_complete_kpi",
+                "trigger": "research.complete",
+                "action": "refresh_kpi_note",
+                "mind": False,
+            }
+        ],
+    },
+    "tokens": {
+        "module": "tokens",
+        "enabled": True,
+        "procedures": [
+            {
+                "id": "on_complete_budget",
+                "trigger": "tokens.complete",
+                "action": "budget_reconcile_note",
+                "mind": False,
+            }
+        ],
     },
 }
 
@@ -48,10 +85,31 @@ def load_bindings(body_id: str, store: Optional[BodyStore] = None) -> Dict[str, 
             return json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             pass
-    # seed defaults
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(DEFAULT_BINDINGS, indent=2) + "\n", encoding="utf-8")
     return dict(DEFAULT_BINDINGS)
+
+
+def ensure_default_organs(body_id: str, store: Optional[BodyStore] = None) -> Dict[str, Any]:
+    """Merge missing default organs/procedures into organs.json (grow standing surface)."""
+    store = store or BodyStore()
+    path = _organs_path(body_id, store)
+    current = load_bindings(body_id, store)
+    changed = False
+    for name, binding in DEFAULT_BINDINGS.items():
+        if name not in current:
+            current[name] = json.loads(json.dumps(binding))  # deep copy via json
+            changed = True
+            continue
+        cur_procs = {p.get("id"): p for p in (current[name].get("procedures") or [])}
+        for proc in binding.get("procedures") or []:
+            if proc.get("id") not in cur_procs:
+                current[name].setdefault("procedures", []).append(dict(proc))
+                changed = True
+    if changed:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(current, indent=2) + "\n", encoding="utf-8")
+    return current
 
 
 def dispatch_procedures(
@@ -69,11 +127,12 @@ def dispatch_procedures(
     bindings = load_bindings(body_id, store)
     ran: List[Dict[str, Any]] = []
 
-    # normalize forge exit trigger
     exit_code = payload.get("exit_code")
     triggers = {trigger}
     if trigger.startswith("forge_exit") and exit_code not in (None, 0):
         triggers.add("forge_exit.nonzero")
+    if trigger.startswith("forge_exit") and exit_code == 0:
+        triggers.add("forge_exit.completed")
 
     for organ_name, binding in bindings.items():
         if not binding.get("enabled", True):
@@ -94,10 +153,17 @@ def dispatch_procedures(
                     "standing: open obligation + create research packet if still red "
                     "(no auto-wake mind)"
                 )
+            elif action == "note_success":
+                result["note"] = "standing: forge green — no mind required"
+            elif action == "note_ship":
+                result["note"] = "standing: ship check ok — bind showroom capture if configured"
+            elif action == "refresh_kpi_note":
+                result["note"] = "standing: research complete — lab research kpi is offline-safe"
+            elif action == "budget_reconcile_note":
+                result["note"] = "standing: tokens complete reconciles body day budget"
             else:
                 result["note"] = "noop action=%s" % action
             ran.append(result)
-            # append dispatch audit event without re-dispatch
             from .events import ingest as _ingest
 
             try:

@@ -75,7 +75,7 @@ Annotation quality: lab sqc loop  (Loop 3 gate before distill)
 Research log: lab research start|packet|recover|complete|kpi
 Graph context: lab graph route-context|log-node|stats|ablate
 Weights:      lab weights layout|validate|convert  (publish safetensors only)
-Body:         lab body init|list|status|resolve|ledger|ingest
+Body:         lab body init|list|status|kpi|outcomes|factory|organs --grow
 Resilience:   lab resilience status|record|tick|drill
 Compound:     lab compound status|next|round
 EOF

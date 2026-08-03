@@ -83,6 +83,30 @@ class TestBody(unittest.TestCase):
         )
         self.assertEqual(pref.get("preferred_mode_cap"), "short")
 
+    def test_organs_grow_and_kpi(self):
+        from body.organs import ensure_default_organs, dispatch_procedures
+        from body.kpis import body_kpis
+        from body.outcomes import scorecard
+
+        store = self.BodyStore()
+        b = store.init_body(kind="project", name="kpi-demo", repo="/tmp/kpi-demo")
+        organs = ensure_default_organs(b.body_id, store)
+        self.assertIn("research", organs)
+        self.assertIn("tokens", organs)
+        ran = dispatch_procedures(
+            b.body_id,
+            trigger="forge_exit.completed",
+            payload={"exit_code": 0, "exp": "x"},
+            store=store,
+        )
+        self.assertTrue(any(r.get("action") == "note_success" for r in ran))
+        k = body_kpis(b.body_id, store=store)
+        self.assertEqual(k["body_id"], b.body_id)
+        sc = scorecard(b.body_id, store=store)
+        self.assertIn("grade", sc)
+        self.assertIn("score", sc)
+
 
 if __name__ == "__main__":
     unittest.main()
+
