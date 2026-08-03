@@ -46,6 +46,30 @@ class TestCompound(unittest.TestCase):
         # acted is bool; skipped is string when present
         self.assertTrue(out.get("acted") is False or out.get("skipped"))
 
+    def test_1000x_scorecard_shape(self):
+        from compound.thousandx import estimate_lever_mults, evaluate_1000x
+
+        levers = estimate_lever_mults(
+            compound_product=65.0,
+            savings_ratio=90.0,
+            body={"n_bodies": 3, "avg_outcome_score": 90.0, "deep_waste_ops": 0},
+            recovery={"retry_ok_rate": 0.9, "recovered_tasks": 5, "retry_n": 8},
+            gates={"ready_for_canary": True, "ready_for_online": True, "golden": 1.0},
+        )
+        self.assertEqual(set(levers.keys()), {
+            "waste_kill", "context", "recovery", "eval", "body", "reuse",
+        })
+        # evaluate_1000x with empty lab data should not crash
+        x = evaluate_1000x(compound={
+            "product": 1.0,
+            "highest_round": "0x",
+            "gates": {},
+        })
+        self.assertIn("system_product", x)
+        self.assertIn("levers", x)
+        self.assertIn("blockers", x)
+        self.assertEqual(x.get("target"), 1000.0)
+
 
 if __name__ == "__main__":
     unittest.main()

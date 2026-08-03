@@ -77,7 +77,7 @@ Graph context: lab graph route-context|log-node|stats|ablate
 Weights:      lab weights layout|validate|convert  (publish safetensors only)
 Body:         lab body init|list|status|kpi|outcomes|factory|organs --grow
 Resilience:   lab resilience status|record|tick|drill
-Compound:     lab compound status|next|round
+Compound:     lab compound status|next|round|1000x
 EOF
 }
 

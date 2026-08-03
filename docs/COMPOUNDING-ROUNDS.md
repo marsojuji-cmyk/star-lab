@@ -31,6 +31,19 @@ This is the point of the stack: after 30×, “what to build next” stops being
 
 accounting × routing_golden × lead_recover × body × breaker_fsm × factory × rollout_bridge × canary_armed × token_savings_suite × horizon_calibrated
 
+## 1000× system (beyond 30× rounds)
+
+Control-plane rounds unlock the workshop. **1000×** is the product of *operating* levers:
+
+```bash
+lab compound 1000x          # live scorecard
+lab body kpi --waste
+GROK_TOKEN_PACK=aggressive lab tokens savings suite
+```
+
+Doctrine: `docs/1000X-SYSTEM.md`  
+Formula: `waste_kill × context × recovery × eval × body × reuse`
+
 ## DROP (unchanged)
 
 - No heavy local heads until `ready_for_online`

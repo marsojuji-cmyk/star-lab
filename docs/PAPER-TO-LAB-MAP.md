@@ -24,7 +24,7 @@ Grok becomes the **cloud frontier tier** of a Mac-local multi-agent OS. Local co
 | Annotation quality skill | **`modules/sqc`** risk scorer + acceptance sampling + quality loop |
 | Distillation skill | tokens distill rules from audits (labels must pass SQC gate) |
 | Grok Build as Cloud Pro | external TUI; lab optimizes *when* to escalate |
-| 1000× system multiplier | product of fewer wasteful calls + cleaner context + recovery |
+| 1000× system multiplier | product of fewer wasteful calls + cleaner context + recovery — **doctrine + CLI:** `docs/1000X-SYSTEM.md`, `lab compound 1000x` |
 | Local model heads / MLX | **safetensors interchange** — `lab weights`; train anywhere, publish safetensors only |
 
 ## SQC figures → CLI

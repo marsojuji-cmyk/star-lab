@@ -13,16 +13,26 @@ _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT / "modules"))
 
 from compound.engine import evaluate_rounds, load_state
+from compound.thousandx import evaluate_1000x
 
 
 def cmd_status(args: argparse.Namespace) -> int:
     r = evaluate_rounds()
+    x = evaluate_1000x(compound=r)
     if args.json:
-        print(json.dumps(r, indent=2, default=str))
+        out = dict(r)
+        out["thousandx"] = x
+        print(json.dumps(out, indent=2, default=str))
         return 0
     print("═══ Compounding rounds ═══")
     print("highest:   %s" % r.get("highest_round"))
     print("product:   %s× (lever product)" % r.get("product"))
+    print("1000×:     %s× system  tier=%s  gap×%s  (%s)" % (
+        x.get("system_product"),
+        x.get("tier"),
+        x.get("gap_factor"),
+        x.get("doctrine"),
+    ))
     print("canary:    ready=%s  online=%s" % (
         (r.get("gates") or {}).get("ready_for_canary"),
         (r.get("gates") or {}).get("ready_for_online"),
@@ -42,6 +52,48 @@ def cmd_status(args: argparse.Namespace) -> int:
         print("  %d. %s" % (i, s.get("title")))
         print("     adds: %s | risks: %s" % (s.get("adds"), s.get("risks")))
         print("     why:  %s" % s.get("why"))
+    return 0
+
+
+def cmd_1000x(args: argparse.Namespace) -> int:
+    r = evaluate_rounds()
+    x = evaluate_1000x(compound=r)
+    if args.json:
+        print(json.dumps(x, indent=2, default=str))
+        return 0
+    print("═══ 1000× system scorecard ═══")
+    print("doctrine:  %s" % x.get("doctrine"))
+    print("formula:   %s" % x.get("formula"))
+    print("system:    %s×   target=%s×   gap_factor=×%s" % (
+        x.get("system_product"), x.get("target"), x.get("gap_factor"),
+    ))
+    print("tier:      %s" % x.get("tier"))
+    print("claim:     %s" % x.get("claim_language"))
+    print("\nSix levers:")
+    for name, lev in (x.get("levers") or {}).items():
+        print("  ×%-6s %-12s  %s" % (lev.get("mult"), name, lev.get("why")))
+    sig = x.get("signals") or {}
+    print("\nSignals:")
+    print("  compound_product:  %s  (round %s)" % (
+        sig.get("compound_lever_product"), sig.get("compound_highest_round"),
+    ))
+    print("  savings_suite:     %s" % sig.get("savings_suite_ratio"))
+    body = sig.get("body") or {}
+    print("  body outcomes avg: %s  deep_waste_ops=%s" % (
+        body.get("avg_outcome_score"), body.get("deep_waste_ops"),
+    ))
+    rec = sig.get("recovery") or {}
+    print("  recovery retry_ok: %s  (n=%s)" % (
+        rec.get("retry_ok_rate"), rec.get("retry_n"),
+    ))
+    g = sig.get("gates") or {}
+    print("  gates canary/online: %s / %s  golden=%s" % (
+        g.get("ready_for_canary"), g.get("ready_for_online"), g.get("golden"),
+    ))
+    print("\nBlockers toward 1000×:")
+    for b in x.get("blockers") or ["(none listed)"]:
+        print("  · %s" % b)
+    print("\nWeekly: lab body kpi --waste && lab body outcomes && lab compound 1000x")
     return 0
 
 
@@ -93,6 +145,12 @@ def build_parser() -> argparse.ArgumentParser:
     rd.add_argument("name", choices=["10x", "20x", "30x"])
     rd.add_argument("--json", action="store_true")
     rd.set_defaults(func=cmd_round)
+    tx = sub.add_parser(
+        "1000x",
+        help="1000× system scorecard (waste×context×recover×eval×body×reuse)",
+    )
+    tx.add_argument("--json", action="store_true")
+    tx.set_defaults(func=cmd_1000x)
     return p
 
 
