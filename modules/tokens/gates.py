@@ -130,9 +130,13 @@ def _audit_join_rate() -> Dict[str, Any]:
 
 
 def _horizon_mae() -> Optional[float]:
+    """Gate uses winsorized MAE on live (non-retro/seed) audits when available."""
     from .audit import AuditStore
 
-    stats = AuditStore().error_stats()
+    stats = AuditStore().error_stats(for_gate=True)
+    # Prefer winsorized so a few 20k design outliers don't block forever
+    if stats.get("mae_winsor") is not None:
+        return float(stats["mae_winsor"])
     return stats.get("mae")
 
 

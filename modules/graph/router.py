@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from .allocator import allocate_budget
 from .scorer import score_item, estimate_tokens
-from .breaker import apply_to_policy
+from .breaker import apply_to_policy, apply_bundle, tick as breaker_tick
 
 
 @dataclass
@@ -39,6 +39,9 @@ class RouteResult:
     n_passed: int = 0
     n_summarized: int = 0
     n_dropped: int = 0
+    breaker_state: str = "closed"
+    fail_fast: bool = False
+    mode_cap: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -74,13 +77,42 @@ def route_context(
       role_aware — three-gate α sort + budget (baseline C)
     """
     policy = (policy or "role_aware").lower()
-    # circuit breaker: isolate bad role without killing whole graph
-    policy = apply_to_policy(role, policy)
+    # Advance Open→Half-Open timers; apply bundle (DEGRADED/Open) — PR3
+    try:
+        breaker_tick(None)
+    except Exception:
+        pass
     if budget is None:
         budget = allocate_budget(
             role, parent_context_budget=parent_context_budget, stage=stage
         )
-    budget = int(budget)
+    bundle = apply_bundle(role, policy=policy, budget=float(budget))
+    policy = apply_to_policy(role, policy)
+    # prefer bundle policy when constrained
+    if bundle.get("state") and bundle["state"] != "closed":
+        policy = str(bundle.get("policy") or policy)
+    if bundle.get("budget") is not None:
+        budget = int(bundle["budget"])
+    else:
+        budget = int(budget)
+    breaker_state = str(bundle.get("state") or "closed")
+    fail_fast = bool(bundle.get("fail_fast"))
+    mode_cap = bundle.get("mode_cap")
+
+    if fail_fast:
+        return RouteResult(
+            role=role,
+            stage=stage,
+            budget=0,
+            policy=policy,
+            selected=[],
+            decisions=[],
+            tokens_passed=0,
+            n_passed=0,
+            breaker_state=breaker_state,
+            fail_fast=True,
+            mode_cap=mode_cap,
+        )
 
     items = list(memory or [])
     # normalize ids / tokens
@@ -116,6 +148,9 @@ def route_context(
             decisions=decisions,
             tokens_passed=total,
             n_passed=len(selected),
+            breaker_state=breaker_state,
+            fail_fast=False,
+            mode_cap=mode_cap,
         )
 
     # score
@@ -210,6 +245,9 @@ def route_context(
         n_passed=n_pass,
         n_summarized=n_sum,
         n_dropped=n_drop,
+        breaker_state=breaker_state,
+        fail_fast=False,
+        mode_cap=mode_cap,
     )
 
 

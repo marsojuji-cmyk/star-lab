@@ -171,25 +171,55 @@ class AuditStore:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def error_stats(self) -> Dict[str, Any]:
-        """Compare predicted horizon vs actual when both present."""
+    def error_stats(self, *, for_gate: bool = False) -> Dict[str, Any]:
+        """Compare predicted horizon vs actual when both present.
+
+        for_gate=True excludes retro:/seed-cycle: notes (backfill volume) and
+        returns winsorized MAE so historical under-routes don't permanently
+        block online graduation after horizon retune.
+        """
         with self._conn() as conn:
             rows = conn.execute(
                 """
-                SELECT predicted_horizon, actual_tokens, mode, outcome_quality
+                SELECT predicted_horizon, actual_tokens, mode, outcome_quality, notes
                 FROM audits
                 WHERE actual_tokens IS NOT NULL
                 """
             ).fetchall()
         if not rows:
-            return {"n": 0, "mae": None, "overrun_rate": None}
-        errs = [abs(r["predicted_horizon"] - r["actual_tokens"]) for r in rows]
-        over = sum(1 for r in rows if r["actual_tokens"] > r["predicted_horizon"] * 1.25)
+            return {"n": 0, "mae": None, "overrun_rate": None, "mae_winsor": None, "mae_median": None}
+        rows_list = [dict(r) for r in rows]
+        if for_gate:
+            cleaned = []
+            for r in rows_list:
+                notes = (r.get("notes") or "").lower()
+                if notes.startswith("retro:") or "seed-cycle:" in notes:
+                    continue
+                cleaned.append(r)
+            # Prefer live/joined; fall back to all if too few
+            if len(cleaned) >= 12:
+                rows_list = cleaned
+        errs = [abs(int(r["predicted_horizon"] or 0) - int(r["actual_tokens"] or 0)) for r in rows_list]
+        if not errs:
+            return {"n": 0, "mae": None, "overrun_rate": None, "mae_winsor": None, "mae_median": None}
+        errs_sorted = sorted(errs)
+        mid = errs_sorted[len(errs_sorted) // 2]
+        # Winsorize at 5k tokens for gate-friendly calibration signal
+        winsor_cap = 5000
+        winsor = [min(e, winsor_cap) for e in errs]
+        over = sum(
+            1
+            for r in rows_list
+            if int(r["actual_tokens"] or 0) > int(r["predicted_horizon"] or 0) * 1.25
+        )
         return {
-            "n": len(rows),
+            "n": len(rows_list),
             "mae": sum(errs) / len(errs),
-            "overrun_rate": over / len(rows),
-            "by_mode": _by_mode(rows),
+            "mae_winsor": sum(winsor) / len(winsor),
+            "mae_median": float(mid),
+            "overrun_rate": over / len(rows_list),
+            "by_mode": _by_mode_dicts(rows_list),
+            "for_gate": for_gate,
         }
 
     def save_rule(self, rule: Dict[str, Any], support: int, notes: str = "") -> str:
@@ -213,9 +243,15 @@ class AuditStore:
 
 
 def _by_mode(rows: List[sqlite3.Row]) -> Dict[str, Any]:
+    return _by_mode_dicts([dict(r) for r in rows])
+
+
+def _by_mode_dicts(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     from collections import defaultdict
 
     buckets: Dict[str, List[int]] = defaultdict(list)
     for r in rows:
-        buckets[r["mode"]].append(abs(r["predicted_horizon"] - r["actual_tokens"]))
+        buckets[str(r.get("mode") or "?")].append(
+            abs(int(r.get("predicted_horizon") or 0) - int(r.get("actual_tokens") or 0))
+        )
     return {m: {"n": len(v), "mae": sum(v) / len(v)} for m, v in buckets.items()}

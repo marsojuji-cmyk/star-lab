@@ -360,6 +360,7 @@ def record(
         entry["changed_ts"] = now
         entry["reason"] = reason or "hard_open_count"
         save_breakers(data)
+        _maybe_bridge_rollback(key, entry)
         return entry
 
     # Window ratio
@@ -384,6 +385,9 @@ def record(
             entry["opened_ts"] = now
             entry["changed_ts"] = now
             entry["reason"] = reason or ("fail_ratio=%.2f" % ratio)
+            save_breakers(data)
+            _maybe_bridge_rollback(key, entry)
+            return entry
         elif ratio >= thr_deg and state == STATE_CLOSED:
             entry["state"] = STATE_DEGRADED
             entry["changed_ts"] = now
@@ -439,4 +443,23 @@ def set_state(key: str, state: str, *, reason: str = "") -> Dict[str, Any]:
     if state == STATE_OPEN:
         entry["opened_ts"] = time.time()
     save_breakers(data)
+    if state == STATE_OPEN:
+        _maybe_bridge_rollback(key, entry)
     return entry
+
+
+def _maybe_bridge_rollback(key: str, entry: Dict[str, Any]) -> None:
+    """PR4: policy/supervisor Open may fire guarded rollout rollback."""
+    scope = (entry.get("scope") or "").lower()
+    if scope not in ("policy", "supervisor") and not str(key).startswith(("policy:", "supervisor:")):
+        return
+    try:
+        from resilience.rollout_bridge import maybe_rollback_from_breaker
+
+        maybe_rollback_from_breaker(
+            key=key,
+            state=STATE_OPEN,
+            reason=entry.get("reason") or "breaker_open",
+        )
+    except Exception:
+        pass

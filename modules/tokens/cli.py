@@ -32,6 +32,67 @@ from tokens.gates import (
 from tokens.eval_router import eval_frozen, eval_drift, freeze_baseline
 from tokens import rollout as rollout_mod
 from tokens.savings import run_suite, report_history, compare_task
+from tokens.policy import DEFAULT_BUDGETS, _packing_plan
+
+
+def _apply_mode_caps_to_decision(d, *, locked: bool = False):
+    """Apply body limits + breaker mode_cap after EV (PR3). Returns (decision, notes)."""
+    notes = []
+    body_cap = None
+    breaker_cap = None
+    try:
+        from body.resolve import resolve_body
+        from body.schema import apply_mode_caps, min_mode
+
+        body = resolve_body(cwd=os.getcwd(), project=os.environ.get("GROK_PROJECT"))
+        if body and body.limits and body.limits.mode_cap:
+            body_cap = body.limits.mode_cap
+    except Exception:
+        body = None
+        apply_mode_caps = None
+        min_mode = None
+    try:
+        from graph.breaker import apply_bundle
+
+        # supervisor-level preferred; role main as proxy for single-agent route
+        bundle = apply_bundle("main", policy="full")
+        if bundle.get("mode_cap"):
+            breaker_cap = bundle["mode_cap"]
+        if bundle.get("fail_fast"):
+            notes.append("breaker fail_fast → local")
+            if not locked:
+                from tokens.policy import route_task as _rt
+
+                # force local without re-entry recursion: patch decision
+                d.mode = MODE_LOCAL
+                d.budget_tokens = 0
+                d.escalate = False
+                d.packing = _packing_plan(MODE_LOCAL, d.predicted_horizon, 0)
+                d.reasons = list(d.reasons) + ["breaker:fail_fast"]
+                return d, notes
+    except Exception:
+        pass
+
+    if apply_mode_caps is None:
+        return d, notes
+    pref = {}
+    new_mode = apply_mode_caps(
+        d.mode,
+        locked=locked,
+        body_cap=body_cap,
+        breaker_cap=breaker_cap,
+        preferred_store=pref,
+    )
+    if locked and pref.get("preferred_mode_cap"):
+        notes.append("locked; preferred_mode_cap=%s" % pref["preferred_mode_cap"])
+    if new_mode != d.mode:
+        notes.append("mode_cap %s→%s (body=%s breaker=%s)" % (d.mode, new_mode, body_cap, breaker_cap))
+        d.mode = new_mode
+        d.budget_tokens = DEFAULT_BUDGETS.get(new_mode, d.budget_tokens)
+        d.escalate = new_mode != MODE_LOCAL
+        d.packing = _packing_plan(new_mode, d.predicted_horizon, 0)
+        d.reasons = list(d.reasons) + notes
+    return d, notes
 
 
 def _print_decision(d, as_json: bool) -> None:
@@ -86,6 +147,8 @@ def cmd_route(args: argparse.Namespace) -> int:
         context_chars=args.context_chars,
         force_mode=force,
     )
+    # PR3 order: EV → session lock (already applied via force) → body/breaker mode_cap
+    d, cap_notes = _apply_mode_caps_to_decision(d, locked=bool(lock_info.get("locked")))
     store = AuditStore()
     aid = store.log_route(
         task=str(task)[:500],
@@ -94,8 +157,23 @@ def cmd_route(args: argparse.Namespace) -> int:
         budget_tokens=d.budget_tokens,
         expected_value=d.expected_value,
         drivers=d.annotation.horizon.drivers,
-        notes="route",
+        notes="route" + ((" | " + "; ".join(cap_notes)) if cap_notes else ""),
     )
+    # Body day-budget pending charge
+    try:
+        from body.resolve import resolve_body
+        from body.limits import charge
+
+        body = resolve_body(cwd=os.getcwd(), project=os.environ.get("GROK_PROJECT"))
+        if body:
+            charge(
+                body.body_id,
+                int(d.budget_tokens or d.predicted_horizon or 0),
+                kind="route",
+                no_charge=os.environ.get("GROK_TOKEN_NO_CHARGE") == "1",
+            )
+    except Exception:
+        pass
     # L1 shadow dual-log (log-only). Default mirror = same policy (instrumentation).
     # Later: shadow can use alternate scorer without serving it.
     shadow_id = None
@@ -195,6 +273,16 @@ def cmd_complete(args: argparse.Namespace) -> int:
         success=None if args.success is None else (args.success == "yes"),
         notes=args.notes or "",
     )
+    # Body day-budget reconcile (PR-B limits)
+    try:
+        from body.resolve import resolve_body
+        from body.limits import reconcile
+
+        body = resolve_body(cwd=os.getcwd(), project=os.environ.get("GROK_PROJECT"))
+        if body and args.actual_tokens is not None:
+            reconcile(body.body_id, int(args.actual_tokens))
+    except Exception:
+        pass
     print(f"completed audit {args.audit_id}")
     return 0
 

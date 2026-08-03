@@ -77,8 +77,20 @@ def cmd_reset(args: argparse.Namespace) -> int:
 
 
 def cmd_drill(args: argparse.Namespace) -> int:
-    print("drill requires PR4 rollout bridge — stub ok")
-    return 0
+    from resilience.rollout_bridge import full_drill
+
+    out = full_drill()
+    if args.json if hasattr(args, "json") else False:
+        _print_json(out)
+    else:
+        print("═══ Resilience drill (PR4) ═══")
+        print("ok: %s" % out.get("ok"))
+        print("before: %s" % out.get("before"))
+        print("rollback acted: %s" % (out.get("rollback") or {}).get("acted"))
+        print("rollback skip:  %s" % (out.get("rollback") or {}).get("skipped"))
+        print("after:  %s" % out.get("after"))
+        print("traffic_never_increased: %s" % out.get("traffic_never_increased"))
+    return 0 if out.get("ok") else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -113,7 +125,28 @@ def build_parser() -> argparse.ArgumentParser:
     rs.set_defaults(func=cmd_reset)
 
     dr = sub.add_parser("drill")
+    dr.add_argument("--json", action="store_true")
     dr.set_defaults(func=cmd_drill)
+
+    brb = sub.add_parser("rollback-bridge", help="Fire guarded rollout rollback from breaker")
+    brb.add_argument("--key", default="policy:candidate_v2")
+    brb.add_argument("--reason", default="manual_bridge")
+    brb.add_argument("--force", action="store_true")
+    brb.add_argument("--json", action="store_true")
+
+    def cmd_bridge(a: argparse.Namespace) -> int:
+        from resilience.rollout_bridge import maybe_rollback_from_breaker
+
+        out = maybe_rollback_from_breaker(
+            key=a.key, state="open", reason=a.reason, force=a.force
+        )
+        if a.json:
+            _print_json(out)
+        else:
+            print(json.dumps(out, indent=2))
+        return 0 if out.get("acted") or out.get("skipped") else 1
+
+    brb.set_defaults(func=cmd_bridge)
 
     return p
 
