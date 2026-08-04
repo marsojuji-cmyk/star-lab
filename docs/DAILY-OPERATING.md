@@ -121,8 +121,17 @@ lab showroom publish --latest           # or capture … --publish
 5. After a chunk of real work → lab galaxy status (glance only)
 6. If not using loop: research complete + tokens complete
 7. Major phase end → next steps (adds / takes away / why)
-8. Session close → galaxy-wrap + lab galaxy status (skill does both)
+8. Session close → lab handoff close + galaxy-wrap + lab galaxy status
 ```
+
+## New chat (cross-session)
+
+```bash
+lab handoff brief                 # first tool in a new chat
+lab handoff close --note "…" --next "…"   # end of chat
+```
+
+Doc: `docs/NEW-CHAT-HANDOFF.md`. Caps attention: active repos + plane + intents — not full monorepo.
 
 ---
 

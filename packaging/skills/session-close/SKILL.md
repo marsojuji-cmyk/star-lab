@@ -9,6 +9,11 @@ When the user is wrapping up, ending the day, or says things like "done for now"
 
 1. Summarize what changed (files, decisions, blockers) in a few bullets.
 1b. If `lab auto status` shows an open session, run `lab auto finish` yourself (never ask the user for ids).
+1c. **Cross-chat handoff** — write the new-chat package (repos + plane + next intents):
+   ```bash
+   lab handoff close --note "<one-line summary>" --next "<intent>" [--open "<WIP>"]
+   ```
+   Optional: print `lab handoff brief` so the user can open a fresh chat warm.
 2. **Session wrap (Astro Galaxy + tokens)** — run the automated harvest so key data is logged:
    ```bash
    # Preferred one-shot (PATH has galaxy-wrap):

@@ -69,6 +69,7 @@ Grok Star Lab  (lab)
   lab compound …           10×/20×/30× rounds + evolved next-steps
   lab galaxy …             Astro Galaxy key-data tracking (collect|status|log|dash)
   lab auto …               HUMAN-MINIMAL operate (begin|finish|go|status) — no id paste
+  lab handoff …            NEW-CHAT package (close|brief|status|open) — repos + key data
 
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
@@ -82,6 +83,7 @@ Resilience:   lab resilience status|record|tick|drill
 Compound:     lab compound status|next|round|1000x
 Galaxy:       lab galaxy collect|status|log|events|report|dash|auto
 Auto 1000×:   lab auto begin|finish|go|status   (Grok carries ceremony)
+Handoff:      lab handoff close|brief|status     (warm new chats)
 EOF
 }
 
@@ -174,6 +176,9 @@ case "$cmd" in
     ;;
   auto)
     _py modules/auto/cli.py "$@"
+    ;;
+  handoff)
+    _py modules/handoff/cli.py "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2

@@ -193,6 +193,10 @@ if [[ -d "$HOOKS_SRC" ]]; then
       cp "${HOOKS_SRC}/scripts/session_tokens_boot.sh" "${HOOKS_DST}/scripts/session_tokens_boot.sh"
       chmod +x "${HOOKS_DST}/scripts/session_tokens_boot.sh"
     fi
+    if [[ -f "${HOOKS_SRC}/scripts/session_handoff_boot.sh" ]]; then
+      cp "${HOOKS_SRC}/scripts/session_handoff_boot.sh" "${HOOKS_DST}/scripts/session_handoff_boot.sh"
+      chmod +x "${HOOKS_DST}/scripts/session_handoff_boot.sh"
+    fi
     # Astro Galaxy helpers (cron/session-wrap; not SessionStart hooks)
     for _gs in galaxy_auto.sh galaxy_session_wrap.sh; do
       if [[ -f "${HOOKS_SRC}/scripts/${_gs}" ]]; then
@@ -225,6 +229,10 @@ if [[ -d "$HOOKS_SRC" ]]; then
     if [[ -f "${ROOT}/packaging/skills/operate-1000x/SKILL.md" ]]; then
       mkdir -p "${HOME}/.grok/skills/operate-1000x"
       cp "${ROOT}/packaging/skills/operate-1000x/SKILL.md" "${HOME}/.grok/skills/operate-1000x/SKILL.md"
+    fi
+    if [[ -f "${ROOT}/packaging/skills/new-chat-handoff/SKILL.md" ]]; then
+      mkdir -p "${HOME}/.grok/skills/new-chat-handoff"
+      cp "${ROOT}/packaging/skills/new-chat-handoff/SKILL.md" "${HOME}/.grok/skills/new-chat-handoff/SKILL.md"
     fi
     echo "  hooks: token SessionStart installed → ${HOOKS_DST}/token-session-start.json"
     echo "  galaxy: wrappers galaxy-auto / galaxy-wrap → ${LOCAL_BIN}"
