@@ -1,0 +1,19 @@
+{
+  "capture_id": "20260804T033636Z-pulse-board-scaffold-body-factory-e2e-0ae01a1c",
+  "created_at": "2026-08-04T03:36:36Z",
+  "entry_id": "pulse-board-scaffold-body-factory-e2e-20260804",
+  "kind": "demo",
+  "paths": [
+    "~/Projects/pulse-board/src/pulse.py",
+    "~/Projects/pulse-board/tests/test_pulse.py"
+  ],
+  "project": "pulse-board",
+  "proof_commands": [
+    "python3 -m unittest discover -s tests -v",
+    "lab body factory project:pulse-board"
+  ],
+  "published_at": "2026-08-04T03:36:36Z",
+  "source": "manual",
+  "summary": "New product body: outcome pulse CLI, 6 tests, factory exit 0, github private",
+  "title": "pulse-board scaffold + body factory e2e"
+}
