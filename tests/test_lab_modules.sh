@@ -20,6 +20,7 @@ MODULES=(
   sandbox
   ship
   showroom
+  galaxy
 )
 
 assert_exit() {
@@ -99,6 +100,8 @@ assert_exit "lab ship -h" 0 "$LAB" ship -h
 assert_exit "lab showroom -h" 0 "$LAB" showroom -h
 assert_exit "lab observatory -h" 0 "$LAB" observatory -h
 assert_exit "lab observatory help" 0 "$LAB" observatory help
+assert_exit "lab galaxy -h" 0 "$LAB" galaxy -h
+assert_exit "lab galaxy status" 0 "$LAB" galaxy status
 
 # doctor / status via facade
 assert_exit "lab doctor -h" 0 "$LAB" doctor -h

@@ -23,3 +23,14 @@ open dashboard/index.html
 - Prefer repairing via doctor findings, then re-running doctor.
 - Keep catastrophic safety rails; never weaken deny rules without user ask.
 - Update `~/.grok/memory/MEMORY.md` when topology changes.
+
+## Daily operating (machine doctrine)
+
+Source: [`docs/DAILY-OPERATING.md`](docs/DAILY-OPERATING.md) (also `~/.grok/rules/home.md`).
+
+- First substantive task each session: `lab tokens route "…"`. Never deep-budget ops.
+- Multi-file / multi-step: **habit A** — `lab research start` → work → `lab research complete <id> --success yes|no`.
+- Habit B (packets / recover) only when tests or ship are red.
+- After real work or session close: `lab galaxy status` (scoreboard glance). Do not expand Galaxy collectors unless dim/alert.
+- Defer `lab weights` / manifest / tokenizer work until shipping a local head.
+- Session close skill: harvest (`galaxy-wrap`) + Galaxy status glance.

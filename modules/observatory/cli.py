@@ -34,6 +34,7 @@ MODULE_NAMES = [
     "sandbox",
     "dock",
     "showroom",
+    "galaxy",
 ]
 
 

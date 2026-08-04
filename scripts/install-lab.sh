@@ -82,6 +82,7 @@ SUBDIRS=(
   "${LAB_DATA}/imagine/runs"
   "${LAB_DATA}/gym"
   "${LAB_DATA}/gym/results"
+  "${LAB_DATA}/galaxy"
 )
 
 for d in "${SUBDIRS[@]}"; do
@@ -155,6 +156,25 @@ fi
 # Explicit non-goals: never clobber safety-guard.json / safety_guard.py.
 # Token SessionStart hooks ARE installed (additive / overwrite only our token files).
 
+# 4b. Astro Galaxy wrappers (cron/session-wrap shims)
+for _pair in \
+  "galaxy-auto:${ROOT}/scripts/galaxy-auto.sh" \
+  "galaxy-wrap:${ROOT}/scripts/galaxy-session-wrap.sh"
+do
+  _name="${_pair%%:*}"
+  _src="${_pair#*:}"
+  if [[ -f "$_src" ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      echo "[dry-run] ln -sfn ${_src} ${LOCAL_BIN}/${_name}"
+    else
+      chmod +x "$_src" 2>/dev/null || true
+      ln -sfn "$_src" "${LOCAL_BIN}/${_name}"
+      echo "  symlink: ${LOCAL_BIN}/${_name} -> ${_src}"
+    fi
+  fi
+done
+unset _pair _name _src
+
 # 4. Token-aware SessionStart hooks (auto-activate lab tokens every session)
 HOOKS_SRC="${ROOT}/packaging/hooks"
 HOOKS_DST="${HOME}/.grok/hooks"
@@ -173,12 +193,36 @@ if [[ -d "$HOOKS_SRC" ]]; then
       cp "${HOOKS_SRC}/scripts/session_tokens_boot.sh" "${HOOKS_DST}/scripts/session_tokens_boot.sh"
       chmod +x "${HOOKS_DST}/scripts/session_tokens_boot.sh"
     fi
+    # Astro Galaxy helpers (cron/session-wrap; not SessionStart hooks)
+    for _gs in galaxy_auto.sh galaxy_session_wrap.sh; do
+      if [[ -f "${HOOKS_SRC}/scripts/${_gs}" ]]; then
+        cp "${HOOKS_SRC}/scripts/${_gs}" "${HOOKS_DST}/scripts/${_gs}"
+        chmod +x "${HOOKS_DST}/scripts/${_gs}"
+      elif [[ -f "${ROOT}/scripts/${_gs//_/-}" ]]; then
+        : # names differ; scripts/ has hyphenated sources
+      fi
+    done
+    # Prefer monorepo scripts/ as source of truth when present
+    if [[ -f "${ROOT}/scripts/galaxy-auto.sh" ]]; then
+      cp "${ROOT}/scripts/galaxy-auto.sh" "${HOOKS_DST}/scripts/galaxy_auto.sh"
+      chmod +x "${HOOKS_DST}/scripts/galaxy_auto.sh"
+    fi
+    if [[ -f "${ROOT}/scripts/galaxy-session-wrap.sh" ]]; then
+      cp "${ROOT}/scripts/galaxy-session-wrap.sh" "${HOOKS_DST}/scripts/galaxy_session_wrap.sh"
+      chmod +x "${HOOKS_DST}/scripts/galaxy_session_wrap.sh"
+    fi
     # Skill for per-task routing
     if [[ -f "${ROOT}/packaging/skills/token-route/SKILL.md" ]]; then
       mkdir -p "${HOME}/.grok/skills/token-route"
       cp "${ROOT}/packaging/skills/token-route/SKILL.md" "${HOME}/.grok/skills/token-route/SKILL.md"
     fi
+    # session-close includes galaxy wrap ritual
+    if [[ -f "${ROOT}/packaging/skills/session-close/SKILL.md" ]]; then
+      mkdir -p "${HOME}/.grok/skills/session-close"
+      cp "${ROOT}/packaging/skills/session-close/SKILL.md" "${HOME}/.grok/skills/session-close/SKILL.md"
+    fi
     echo "  hooks: token SessionStart installed → ${HOOKS_DST}/token-session-start.json"
+    echo "  galaxy: wrappers galaxy-auto / galaxy-wrap → ${LOCAL_BIN}"
   fi
 fi
 
@@ -187,4 +231,5 @@ echo "  Try: lab help"
 echo "       lab doctor"
 echo "       lab status"
 echo "       lab tokens policy"
+echo "       lab galaxy collect"
 echo "  Token policy auto-boots on every Grok SessionStart."

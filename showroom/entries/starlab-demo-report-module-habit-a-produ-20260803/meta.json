@@ -1,0 +1,22 @@
+{
+  "capture_id": "20260803T180630Z-starlab-demo-report-module-habit-a-product-code-62ac9d0f",
+  "created_at": "2026-08-03T18:06:30Z",
+  "entry_id": "starlab-demo-report-module-habit-a-produ-20260803",
+  "extra": {
+    "forge_id": "starlab-demo-report"
+  },
+  "kind": "experiment",
+  "paths": [
+    "~/Projects/starlab-demo/src/report.py",
+    "~/Projects/starlab-demo/tests/test_report.py"
+  ],
+  "project": "starlab-demo",
+  "proof_commands": [
+    "python3 -m unittest discover -s tests -v",
+    "python3 hello.py --report"
+  ],
+  "published_at": "2026-08-03T18:06:36Z",
+  "source": "from-forge",
+  "summary": "src/report.py + tests + hello --report; 10 unittest OK; forge exit 0",
+  "title": "starlab-demo report module (habit A product code)"
+}

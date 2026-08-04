@@ -67,6 +67,7 @@ Grok Star Lab  (lab)
   lab body …               body registry (identity/property/contact/limits)
   lab resilience …         agentic circuit breakers (status|record|tick)
   lab compound …           10×/20×/30× rounds + evolved next-steps
+  lab galaxy …             Astro Galaxy key-data tracking (collect|status|log|dash)
 
 Data root: ~/.grok/lab
 Repo:      ${ROOT}
@@ -78,6 +79,7 @@ Weights:      lab weights layout|validate|convert  (publish safetensors only)
 Body:         lab body init|list|status|kpi|outcomes|factory|organs --grow
 Resilience:   lab resilience status|record|tick|drill
 Compound:     lab compound status|next|round|1000x
+Galaxy:       lab galaxy collect|status|log|events|report|dash|auto
 EOF
 }
 
@@ -164,6 +166,9 @@ case "$cmd" in
     ;;
   compound)
     _py modules/compound/cli.py "$@"
+    ;;
+  galaxy|astro)
+    _py modules/galaxy/cli.py "$@"
     ;;
   *)
     echo "error: unknown command: ${cmd}" >&2

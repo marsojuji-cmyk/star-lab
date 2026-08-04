@@ -18,56 +18,63 @@
 </head>
 <body>
   <h1>Research KPI Board</h1>
-  <p class="sub">Loop 4 · measure / compare / redeploy · 2026-08-01 19:27 UTC · <a href="index.html">portal</a></p>
+  <p class="sub">Loop 4 · measure / compare / redeploy · 2026-08-04 03:22 UTC · <a href="index.html">portal</a></p>
   <div class="grid">
-    <div class="card"><div class="k">Completed logs</div><div class="v">27</div></div>
-    <div class="card"><div class="k">Accepted patch rate</div><div class="v">0.926</div></div>
-    <div class="card"><div class="k">Test pass rate</div><div class="v">0.889</div></div>
-    <div class="card"><div class="k">Avg tokens / success</div><div class="v">1175.200</div></div>
-    <div class="card"><div class="k">Recovery rate</div><div class="v">0.111</div></div>
-    <div class="card"><div class="k">Latency / task (s)</div><div class="v">1.433</div></div>
+    <div class="card"><div class="k">Completed logs</div><div class="v">42</div></div>
+    <div class="card"><div class="k">Accepted patch rate</div><div class="v">0.929</div></div>
+    <div class="card"><div class="k">Test pass rate</div><div class="v">0.909</div></div>
+    <div class="card"><div class="k">Avg tokens / success</div><div class="v">1237.949</div></div>
+    <div class="card"><div class="k">Recovery rate</div><div class="v">0.095</div></div>
+    <div class="card"><div class="k">Latency / task (s)</div><div class="v">3.338</div></div>
     <div class="card"><div class="k">Human interrupts avg</div><div class="v">0.000</div></div>
     <div class="card"><div class="k">SQC task pass rate</div><div class="v">1.000</div></div>
     <div class="card"><div class="k">SQC loop accept rate</div><div class="v">0.667</div></div>
-    <div class="card"><div class="k">Token audits n</div><div class="v">41</div></div>
-    <div class="card"><div class="k">Token horizon MAE</div><div class="v">1243.268</div></div>
+    <div class="card"><div class="k">Token audits n</div><div class="v">109</div></div>
+    <div class="card"><div class="k">Token horizon MAE</div><div class="v">3093.138</div></div>
     <div class="card"><div class="k">Last SQC decision</div><div class="v" style="font-size:1rem">accept_batch</div></div>
   </div>
   <h2 style="margin-top:28px;font-size:1rem;color:#9aa8c7">Raw JSON</h2>
   <pre>{
-  "n_completed_logs": 27,
-  "n_success": 25,
-  "test_pass_rate": 0.8888888888888888,
-  "accepted_patch_rate": 0.9259259259259259,
-  "average_tokens_per_success": 1175.2,
-  "recovery_rate_after_failure": 0.1111111111111111,
-  "latency_per_completed_task_s": 1.433222222222222,
+  "n_completed_logs": 42,
+  "n_success": 39,
+  "test_pass_rate": 0.9090909090909091,
+  "accepted_patch_rate": 0.9285714285714286,
+  "average_tokens_per_success": 1237.948717948718,
+  "recovery_rate_after_failure": 0.09523809523809523,
+  "latency_per_completed_task_s": 3.337904761904762,
   "human_interruptions_avg": 0.0,
   "sqc_pass_rate": 1.0,
   "token_audit_stats": {
-    "n": 41,
-    "mae": 1243.2682926829268,
-    "overrun_rate": 0.7804878048780488,
+    "n": 109,
+    "mae": 3093.137614678899,
+    "mae_winsor": 1889.1376146788991,
+    "mae_median": 884.0,
+    "overrun_rate": 0.8165137614678899,
     "by_mode": {
       "short": {
-        "n": 29,
-        "mae": 1397.3793103448277
+        "n": 74,
+        "mae": 3553.0
       },
       "local": {
-        "n": 10,
-        "mae": 80.0
+        "n": 26,
+        "mae": 876.3846153846154
       },
       "deep": {
-        "n": 2,
-        "mae": 4825.0
+        "n": 6,
+        "mae": 7130.333333333333
+      },
+      "medium": {
+        "n": 3,
+        "mae": 2887.3333333333335
       }
-    }
+    },
+    "for_gate": false
   },
   "sqc_loop_accept_rate": 0.6666666666666666,
   "sqc_loops_total": 3,
   "last_sqc_decision": "accept_batch",
   "schema_version": 1,
-  "generated_at": 1785612465.6321752
+  "generated_at": 1785813768.335735
 }</pre>
 </body>
 </html>

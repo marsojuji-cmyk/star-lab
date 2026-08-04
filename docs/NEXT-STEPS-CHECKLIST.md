@@ -106,6 +106,31 @@ gh repo create grok-home --private --source=. --remote=github --push
 
 ---
 
+## 7. Daily operating doctrine + habit A (2026-08-03)
+
+- [x] Write `docs/DAILY-OPERATING.md` (use this / ignore that)
+- [x] Point from `~/.grok/rules/home.md` + `MEMORY.md`
+- [x] Habit **A** default; habit B on failure only
+- [x] Session-close skill: `galaxy-wrap` + required `lab galaxy status` glance
+- [x] Wire doctrine into control plane: `README.md`, `portal/index.html`, `AGENTS.md`
+- [x] Habit A e2e: `lab research start` → multi-file edits → `complete` (task `196c1b11e5f4`)
+- [x] Habit A **product code**: `starlab-demo` `src/report.py` + tests + `hello --report` (task `77e3383b3513`, forge exit 0)
+- [x] **Phase A body factory** (2026-08-04): option A `test_hello_report.py`; research `24f13d68db0a`; `lab body factory project:starlab-demo` exit 0; 15 tests; canary serve=false held
+- [·] Weights/manifest — **deferred** until local-head ship
+- [ ] GitHub remote (still blocked on `gh auth login`)
+
+**Adds:** Discoverable daily path; compounding research KPI sample.  
+**Takes away:** “Which upgrades do I run every day?” ambiguity.  
+**Why:** Enhancements only pay if the thin path is practiced.
+
+### Why these were the next steps (reasoning)
+
+1. **Product-code habit A** — Meta-docs already proved the loop once. A second sample on `starlab-demo` (domain module + tests) diversifies research KPIs and proves the doctrine works on real code, not only control-plane wiring.
+2. **GitHub remote** — Only high-value gap that is human-gated (`gh auth login`). Local origin exists; off-box backup/PRs need you. Attempted check: not authenticated.
+3. **Defer weights + Galaxy invent** — dim=0 / alert=0 and no local-head ship. Expanding either would subtract focus for zero scoreboard need.
+
+---
+
 ## Verification snapshot (this run)
 
 | Check | Result |

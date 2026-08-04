@@ -57,16 +57,28 @@ lab dash
 | **Integration Dock** | `lab dock` | MCP probe + offline fallbacks |
 | **Showroom** | `lab showroom` | Inbox → publish → static gallery |
 | **Token Control Plane** | `lab tokens` | Horizon route local/short/medium/deep (auto SessionStart) |
+| **Astro Galaxy** | `lab galaxy` | Auto harvest of key lab signals → constellation UI + daily log |
 
 ```bash
 lab tokens policy
 lab tokens route "implement a feature with tests"
+lab galaxy collect
 lab gym smoke
 lab forge list
 lab showroom list
 ```
 
-Mutable state: `~/.grok/lab/`. Proof: `docs/PROOF.txt`. Design: `docs/GROK-STAR-LAB-DESIGN.md`. Tokens: `docs/TOKEN-AWARE-CONTROL-PLANE.md`.
+Mutable state: `~/.grok/lab/`. Proof: `docs/PROOF.txt`. Design: `docs/GROK-STAR-LAB-DESIGN.md`. Tokens: `docs/TOKEN-AWARE-CONTROL-PLANE.md`. Galaxy: `docs/ASTRO-GALAXY.md`. **Daily use/ignore:** [`docs/DAILY-OPERATING.md`](docs/DAILY-OPERATING.md).
+
+## Daily operating (doctrine)
+
+One-pager: **[`docs/DAILY-OPERATING.md`](docs/DAILY-OPERATING.md)** — use this / ignore that.
+
+1. **Cheap path sacred** — `lab tokens route`; never deep-budget ops.
+2. **Galaxy = scoreboard** — `lab galaxy status` after real work; don’t invent collectors.
+3. **Habit A default** — multi-file → `lab research start` → work → `complete`. Packets only when red.
+4. **Defer weights** — until a real local-head ship/swap.
+5. **Scorecards on demand** — doctor / savings suite / safety regression when you want proof.
 
 ```bash
 # Module + safety regression (PR13)
