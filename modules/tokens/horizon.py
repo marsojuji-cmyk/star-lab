@@ -42,7 +42,9 @@ _FEATURE_BOOSTS: List[Tuple[str, re.Pattern, float]] = [
     ),
     ("multi_step", re.compile(r"\b(step[- ]by[- ]step|plan|design|architect|migrate|refactor)\b", re.I), 1800),
     ("debug", re.compile(r"\b(debug|root[- ]cause|investigate|why (is|does)|fails?|error)\b", re.I), 650),
-    ("implement", re.compile(r"\b(implement|build|write|create|scaffold|code)\b", re.I), 700),
+    ("implement", re.compile(r"\b(implement|build|write|create|code)\b", re.I), 700),
+    # scaffold alone is hour-sized product bootstrap — not multi-agent deep
+    ("scaffold", re.compile(r"\bscaffold\b", re.I), -250),
     ("review", re.compile(r"\b(review|audit|security|threat)\b", re.I), 450),
     ("compare", re.compile(r"\b(compare|trade[- ]?off|alternatives|vs\.?)\b", re.I), 350),
     ("explain", re.compile(r"\b(explain|how does|what is|summar(y|ize))\b", re.I), 150),
@@ -96,6 +98,20 @@ def _heuristic_horizon(task: str, context_chars: int = 0) -> HorizonEstimate:
     # Length of the ask itself correlates with answer length.
     ask_boost = min(1500, prompt_tok * 2)
     predicted = int(max(64, base + boost + ask_boost))
+    # Scaffold + factory language: prefer short/medium, not deep fan-out.
+    # Cap residual e2e_factory inflation when the ask is explicitly a scaffold.
+    if any(d.get("token_or_pattern") == "scaffold" for d in drivers):
+        if any(d.get("token_or_pattern") == "e2e_factory" for d in drivers):
+            predicted = min(predicted, 900)
+            drivers.append(
+                {
+                    "token_or_pattern": "scaffold_caps_e2e",
+                    "delta_tokens": 0,
+                    "regime": "short",
+                    "matched": True,
+                }
+            )
+        predicted = min(predicted, 1200)
     # Soft cap: free offline policy shouldn't assume infinite budgets.
     predicted = min(predicted, 24000)
 

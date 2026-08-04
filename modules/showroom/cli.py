@@ -68,7 +68,23 @@ def cmd_capture(args: argparse.Namespace) -> int:
         return 1
 
     print("showroom: captured → %s" % out)
-    print("  (inbox only; publish with: lab showroom publish %s)" % out.stem)
+    if getattr(args, "publish", False):
+        try:
+            result = publish_inbox_item(
+                out.stem,
+                root=repo_root(),
+                keep_inbox=bool(getattr(args, "keep_inbox", False)),
+            )
+            eid = (result or {}).get("entry_id") or out.stem
+            print("showroom: published → showroom/entries/%s/" % eid)
+            if result.get("index_path"):
+                print("  index: %s" % result["index_path"])
+        except Exception as exc:
+            print("error: publish after capture failed: %s" % exc, file=sys.stderr)
+            return 1
+    else:
+        print("  (inbox only; publish with: lab showroom publish --latest)")
+        print("  (or: lab showroom publish %s)" % out.stem)
     return 0
 
 
@@ -118,7 +134,25 @@ def cmd_list(args: argparse.Namespace) -> int:
 def cmd_publish(args: argparse.Namespace) -> int:
     root = repo_root()
     ids: List[str] = list(args.ids or [])
-    if args.all:
+    if getattr(args, "latest", False):
+        files = list_inbox()
+        # newest unpublished by mtime
+        candidates = []
+        for f in files:
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                if data.get("published") and not args.force:
+                    continue
+            except (OSError, json.JSONDecodeError):
+                pass
+            candidates.append(f)
+        if not candidates:
+            print("showroom: inbox empty — nothing to publish")
+            return 0
+        newest = max(candidates, key=lambda p: p.stat().st_mtime)
+        ids = [newest.stem]
+        print("showroom: --latest → %s" % newest.stem)
+    elif args.all:
         files = list_inbox()
         # only unpublished (not already in done/)
         ids = [f.stem for f in files]
@@ -137,7 +171,10 @@ def cmd_publish(args: argparse.Namespace) -> int:
                 print("showroom: publish cancelled")
                 return 1
     elif not ids:
-        print("error: provide capture id(s) or --all", file=sys.stderr)
+        print(
+            "error: provide capture id(s), --latest, or --all",
+            file=sys.stderr,
+        )
         return 2
 
     ok = 0
@@ -276,6 +313,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="proof command string (repeatable)",
     )
+    sp.add_argument(
+        "--publish",
+        action="store_true",
+        help="immediately publish this capture (no id paste)",
+    )
+    sp.add_argument(
+        "--keep-inbox",
+        action="store_true",
+        help="with --publish: leave item in inbox instead of done/",
+    )
     sp.set_defaults(func=cmd_capture)
 
     sp_list = sub.add_parser("list", help="list curated entries (or --inbox)")
@@ -304,6 +351,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--all",
         action="store_true",
         help="publish all inbox items (prompts unless --yes)",
+    )
+    sp_pub.add_argument(
+        "--latest",
+        action="store_true",
+        help="publish newest unpublished inbox item (no id paste)",
     )
     sp_pub.add_argument(
         "--yes",

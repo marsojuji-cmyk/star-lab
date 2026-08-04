@@ -104,6 +104,7 @@ class BodyStore:
         mode_cap: str = "medium",
         budget_day: int = 100_000,
         organs: Optional[List[str]] = None,
+        validation_cmd: Optional[str] = None,
     ) -> Body:
         kind = (kind or "project").lower()
         name = (name or "").strip()
@@ -145,7 +146,10 @@ class BodyStore:
                 breaker_parent="body:%s" % body_id,
             ),
             organs=list(organs or DEFAULT_ORGANS),
-            meta={"notes": ""},
+            meta={
+                "notes": "",
+                "validation_cmd": (validation_cmd or "").strip() or None,
+            },
         )
         self.save(body)
         return body

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -14,9 +16,6 @@ _HERE = Path(__file__).resolve().parent
 _MOD = str(_HERE.parent)
 if _MOD not in sys.path:
     sys.path.insert(0, _MOD)
-
-import os
-from pathlib import Path
 
 from body.store import BodyStore
 from body.resolve import resolve_body, resolve_info
@@ -37,10 +36,20 @@ def cmd_init(args: argparse.Namespace) -> int:
         repo=args.repo,
         mode_cap=args.mode_cap,
         budget_day=args.budget_day,
+        validation_cmd=getattr(args, "validation_cmd", None),
     )
+    # Allow updating validation_cmd on existing body
+    vcmd = (getattr(args, "validation_cmd", None) or "").strip()
+    if vcmd:
+        meta = dict(body.meta or {})
+        meta["validation_cmd"] = vcmd
+        body.meta = meta
+        store.save(body)
     print("body: %s" % body.body_id)
     print("  dir: %s" % store.body_dir(body.body_id))
     print("  kind: %s name: %s" % (body.kind, body.name))
+    if (body.meta or {}).get("validation_cmd"):
+        print("  validation_cmd: %s" % body.meta.get("validation_cmd"))
     return 0
 
 
@@ -286,7 +295,8 @@ def cmd_factory(args: argparse.Namespace) -> int:
         print("error: body has no repo_path", file=sys.stderr)
         return 2
     cwd = str(Path(repo).expanduser())
-    cmd = args.cmd or "python3 -m unittest discover -s tests -q"
+    meta_cmd = ((body.meta or {}).get("validation_cmd") or "").strip()
+    cmd = args.cmd or meta_cmd or "python3 -m unittest discover -s tests -q"
     print("factory: body=%s cwd=%s" % (body.body_id, cwd))
     print("factory: cmd=%s" % cmd)
     # Prefer lab forge when available for ledger dual-write
@@ -319,6 +329,198 @@ def cmd_factory(args: argparse.Namespace) -> int:
     return ec
 
 
+def _lab_bin() -> str:
+    env = os.environ.get("LAB_BIN")
+    if env and Path(env).is_file():
+        return env
+    home_lab = Path.home() / ".local" / "bin" / "lab"
+    if home_lab.is_file():
+        return str(home_lab)
+    # modules/body/cli.py → repo bin/lab
+    repo_lab = Path(__file__).resolve().parents[2] / "bin" / "lab"
+    if repo_lab.is_file():
+        return str(repo_lab)
+    return "lab"
+
+
+def _run_lab(
+    argv: List[str], *, cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None
+) -> "subprocess.CompletedProcess[str]":
+    e = os.environ.copy()
+    if env:
+        e.update(env)
+    return subprocess.run([_lab_bin()] + argv, cwd=cwd, env=e, text=True, capture_output=True)
+
+
+def cmd_loop(args: argparse.Namespace) -> int:
+    """One-shot operate path: route → research → factory → complete (+ optional showroom)."""
+    import re
+
+    store = BodyStore()
+    body = store.load(args.body_id) or store.load("project:%s" % args.body_id)
+    if not body:
+        print("error: body not found: %s" % args.body_id, file=sys.stderr)
+        return 1
+    repo = (body.identity or {}).get("repo_path")
+    if not repo or not Path(repo).expanduser().is_dir():
+        print("error: body has no repo_path", file=sys.stderr)
+        return 2
+    cwd = str(Path(repo).expanduser())
+    goal = (args.goal or "").strip()
+    if not goal:
+        print("error: --goal is required", file=sys.stderr)
+        return 2
+
+    env = {
+        "GROK_BODY": body.body_id,
+        "GROK_PROJECT": body.project_key() or body.name,
+    }
+    print("═══ lab body loop ═══")
+    print("body:  %s" % body.body_id)
+    print("repo:  %s" % cwd)
+    print("goal:  %s" % goal)
+
+    # 1) tokens route with explicit body
+    r = _run_lab(
+        ["tokens", "route", goal, "--body", body.body_id, "--project", body.project_key() or body.name],
+        cwd=cwd,
+        env=env,
+    )
+    sys.stdout.write(r.stdout or "")
+    if r.stderr:
+        sys.stderr.write(r.stderr)
+    if r.returncode != 0:
+        print("error: tokens route failed", file=sys.stderr)
+        return int(r.returncode)
+    audit_id = None
+    mode = "short"
+    m = re.search(r"audit_id:\s*(\S+)", r.stdout or "")
+    if m:
+        audit_id = m.group(1)
+    mm = re.search(r"mode:\s+(\S+)", r.stdout or "")
+    if mm:
+        mode = mm.group(1)
+
+    research_id = None
+    if not args.no_research:
+        rargv = [
+            "research",
+            "start",
+            goal,
+            "--repo",
+            cwd,
+            "--mode",
+            mode or "short",
+        ]
+        if audit_id:
+            rargv += ["--token-audit-id", audit_id]
+        rr = _run_lab(rargv, cwd=cwd, env=env)
+        sys.stdout.write(rr.stdout or "")
+        if rr.stderr:
+            sys.stderr.write(rr.stderr)
+        rm = re.search(r"started id=(\S+)", rr.stdout or "")
+        if rm:
+            research_id = rm.group(1)
+
+    # 2) factory
+    class _A:
+        pass
+
+    fac_args = _A()
+    fac_args.body_id = body.body_id
+    fac_args.cmd = args.cmd
+    fac_ec = cmd_factory(fac_args)
+
+    success = "yes" if fac_ec == 0 else "no"
+    if research_id:
+        cargv = [
+            "research",
+            "complete",
+            research_id,
+            "--success",
+            success,
+            "--tests-passed",
+            success,
+        ]
+        if args.tokens is not None:
+            cargv += ["--actual-tokens", str(int(args.tokens))]
+        cargv += ["--notes", "body loop factory_exit=%s" % fac_ec]
+        rc = _run_lab(cargv, cwd=cwd, env=env)
+        sys.stdout.write(rc.stdout or "")
+        if rc.stderr:
+            sys.stderr.write(rc.stderr)
+
+    if audit_id and args.tokens is not None:
+        targv = [
+            "tokens",
+            "complete",
+            "--audit-id",
+            audit_id,
+            "--actual-tokens",
+            str(int(args.tokens)),
+            "--success",
+            success,
+            "--body",
+            body.body_id,
+            "--project",
+            body.project_key() or body.name,
+        ]
+        if args.quality is not None:
+            targv += ["--quality", str(args.quality)]
+        tc = _run_lab(targv, cwd=cwd, env=env)
+        sys.stdout.write(tc.stdout or "")
+        if tc.stderr:
+            sys.stderr.write(tc.stderr)
+    elif audit_id:
+        print("loop: skip tokens complete (pass --tokens N to join audit %s)" % audit_id)
+
+    if args.publish and not args.no_showroom:
+        title = "body loop: %s" % (goal[:60] + ("…" if len(goal) > 60 else ""))
+        sc = _run_lab(
+            [
+                "showroom",
+                "capture",
+                "--manual",
+                "--title",
+                title,
+                "--project",
+                body.project_key() or body.name,
+                "--kind",
+                "experiment",
+                "--summary",
+                "factory_exit=%s research=%s audit=%s" % (fac_ec, research_id, audit_id),
+                "--proof",
+                "lab body factory %s" % body.body_id,
+                "--publish",
+            ],
+            cwd=cwd,
+            env=env,
+        )
+        sys.stdout.write(sc.stdout or "")
+        if sc.stderr:
+            sys.stderr.write(sc.stderr)
+
+    print("─── loop summary ───")
+    print("body:        %s" % body.body_id)
+    print("audit_id:    %s" % (audit_id or "(none)"))
+    print("research_id: %s" % (research_id or "(skipped)"))
+    print("factory:     exit=%s" % fac_ec)
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "body_id": body.body_id,
+                    "audit_id": audit_id,
+                    "research_id": research_id,
+                    "factory_exit": fac_ec,
+                    "success": fac_ec == 0,
+                },
+                indent=2,
+            )
+        )
+    return int(fac_ec)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="lab body", description="Body registry (identity/property/contact/limits)")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -329,6 +531,11 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--repo", default=None)
     i.add_argument("--mode-cap", default="medium")
     i.add_argument("--budget-day", type=int, default=100_000)
+    i.add_argument(
+        "--validation-cmd",
+        default=None,
+        help="Standing factory command (stored on body.meta)",
+    )
     i.set_defaults(func=cmd_init)
 
     ls = sub.add_parser("list", help="List bodies")
@@ -399,6 +606,21 @@ def build_parser() -> argparse.ArgumentParser:
     fac.add_argument("body_id")
     fac.add_argument("--cmd", default=None, help="Override validation command")
     fac.set_defaults(func=cmd_factory)
+
+    loop = sub.add_parser(
+        "loop",
+        help="One-shot operate: route → research → factory → complete",
+    )
+    loop.add_argument("body_id", help="e.g. project:pulse-board")
+    loop.add_argument("--goal", required=True, help="Task goal string")
+    loop.add_argument("--cmd", default=None, help="Factory validation override")
+    loop.add_argument("--tokens", type=int, default=None, help="Actual tokens for complete join")
+    loop.add_argument("--quality", type=float, default=None, help="0..1 quality for tokens complete")
+    loop.add_argument("--no-research", action="store_true", help="Skip research start/complete")
+    loop.add_argument("--no-showroom", action="store_true", help="Skip showroom even with --publish")
+    loop.add_argument("--publish", action="store_true", help="Capture + publish showroom entry")
+    loop.add_argument("--json", action="store_true")
+    loop.set_defaults(func=cmd_loop)
 
     return p
 

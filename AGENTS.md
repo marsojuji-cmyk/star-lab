@@ -28,9 +28,11 @@ open dashboard/index.html
 
 Source: [`docs/DAILY-OPERATING.md`](docs/DAILY-OPERATING.md) (also `~/.grok/rules/home.md`).
 
-- First substantive task each session: `lab tokens route "…"`. Never deep-budget ops.
-- Multi-file / multi-step: **habit A** — `lab research start` → work → `lab research complete <id> --success yes|no`.
+- First substantive task each session: `lab tokens route "…" [--project name]`. Never deep-budget ops.
+- Multi-file product work: prefer **`lab body loop project:<name> --goal "…" --tokens N`** (route + research + factory + complete).
+- Manual habit A still fine: `lab research start` → work → `complete`.
 - Habit B (packets / recover) only when tests or ship are red.
+- Showroom: `lab showroom capture … --publish` or `lab showroom publish --latest`.
 - After real work or session close: `lab galaxy status` (scoreboard glance). Do not expand Galaxy collectors unless dim/alert.
 - Defer `lab weights` / manifest / tokenizer work until shipping a local head.
 - Session close skill: harvest (`galaxy-wrap`) + Galaxy status glance.

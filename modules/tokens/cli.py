@@ -124,6 +124,27 @@ def _print_decision(d, as_json: bool) -> None:
     print(f"notes: {d.annotation.horizon.notes}")
 
 
+def _resolve_body_from_args(args: argparse.Namespace):
+    """Prefer explicit --body / --project over cwd; set env for downstream."""
+    try:
+        from body.resolve import resolve_body
+    except Exception:
+        return None
+    body_arg = getattr(args, "body", None) or None
+    project_arg = getattr(args, "project", None) or None
+    body = resolve_body(
+        body=body_arg,
+        project=project_arg,
+        cwd=os.getcwd(),
+    )
+    if body:
+        os.environ["GROK_BODY"] = body.body_id
+        pk = body.project_key() or body.name
+        if pk:
+            os.environ["GROK_PROJECT"] = pk
+    return body
+
+
 def cmd_route(args: argparse.Namespace) -> int:
     task = args.task
     if args.file:
@@ -131,6 +152,8 @@ def cmd_route(args: argparse.Namespace) -> int:
     if not task or not str(task).strip():
         print("error: empty task", file=sys.stderr)
         return 2
+    # Attach body before mode caps so caps/charge use explicit --body/--project
+    body = _resolve_body_from_args(args)
     # Session lock: pin mode mid tool-loop unless --force-mode (escape hatch)
     lock_info = apply_lock_to_route(
         args.force_mode or "", force_mode=args.force_mode
@@ -161,10 +184,8 @@ def cmd_route(args: argparse.Namespace) -> int:
     )
     # Body day-budget pending charge
     try:
-        from body.resolve import resolve_body
         from body.limits import charge
 
-        body = resolve_body(cwd=os.getcwd(), project=os.environ.get("GROK_PROJECT"))
         if body:
             charge(
                 body.body_id,
@@ -217,6 +238,8 @@ def cmd_route(args: argparse.Namespace) -> int:
     if args.json:
         out = d.to_dict()
         out["audit_id"] = aid
+        if body:
+            out["body_id"] = body.body_id
         if shadow_id:
             out["shadow_id"] = shadow_id
             out["policy_id"] = "heuristic_v1"
@@ -226,6 +249,8 @@ def cmd_route(args: argparse.Namespace) -> int:
     else:
         _print_decision(d, as_json=False)
         print(f"audit_id: {aid}")
+        if body:
+            print(f"body: {body.body_id}")
         if shadow_id:
             print(f"shadow_id: {shadow_id} (log-only)")
         if lock_info.get("locked"):
@@ -275,12 +300,12 @@ def cmd_complete(args: argparse.Namespace) -> int:
     )
     # Body day-budget reconcile (PR-B limits)
     try:
-        from body.resolve import resolve_body
         from body.limits import reconcile
 
-        body = resolve_body(cwd=os.getcwd(), project=os.environ.get("GROK_PROJECT"))
+        body = _resolve_body_from_args(args)
         if body and args.actual_tokens is not None:
             reconcile(body.body_id, int(args.actual_tokens))
+            print(f"body: {body.body_id} reconciled")
     except Exception:
         pass
     print(f"completed audit {args.audit_id}")
@@ -617,6 +642,16 @@ def main(argv: Optional[list] = None) -> int:
         choices=[MODE_LOCAL, MODE_SHORT, MODE_MEDIUM, MODE_DEEP],
         help="Log-only alternate mode for shadow experiments",
     )
+    r.add_argument(
+        "--body",
+        default=None,
+        help="Attach body id (e.g. project:pulse-board) for charge/KPIs",
+    )
+    r.add_argument(
+        "--project",
+        default=None,
+        help="Attach project name → project:<name> (overrides cwd)",
+    )
     r.add_argument("--json", action="store_true")
     r.set_defaults(func=cmd_route)
 
@@ -649,6 +684,16 @@ def main(argv: Optional[list] = None) -> int:
     c.add_argument("--quality", type=float, default=None)
     c.add_argument("--success", choices=["yes", "no"], default=None)
     c.add_argument("--notes", default="")
+    c.add_argument(
+        "--body",
+        default=None,
+        help="Body id for budget reconcile (e.g. project:pulse-board)",
+    )
+    c.add_argument(
+        "--project",
+        default=None,
+        help="Project name for body reconcile when cwd is wrong",
+    )
     c.set_defaults(func=cmd_complete)
 
     u = sub.add_parser("audit", help="List audits or stats")

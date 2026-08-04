@@ -89,13 +89,28 @@ Habit **B** (packets) is **on-failure only**, not daily.
 
 ## Session skeleton (default)
 
+**Preferred one-shot (de-clunk):** when a body exists for the product repo:
+
+```bash
+lab body loop project:<name> --goal "…" --tokens N --quality 0.9 [--publish]
+# route → research → factory → complete (+ optional showroom) in one command
+```
+
+Attach body even when cwd is wrong:
+
+```bash
+lab tokens route "…" --project <name>   # or --body project:<name>
+lab tokens complete --audit-id … --project <name> --actual-tokens N
+lab showroom publish --latest           # or capture … --publish
+```
+
 ```text
 1. SessionStart hook boots token doctrine (automatic)
-2. First real user task → lab tokens route "…"
-3. Multi-file / multi-step? → lab research start "…" (habit A)
+2. First real user task → lab tokens route "…" [--project …]
+3. Multi-file product work → prefer lab body loop (else habit A manual)
 4. Do the work inside the budgeted mode
 5. After a chunk of real work → lab galaxy status (glance only)
-6. Finish research task → lab research complete <id> --success yes|no
+6. If not using loop: research complete + tokens complete
 7. Major phase end → next steps (adds / takes away / why)
 8. Session close → galaxy-wrap + lab galaxy status (skill does both)
 ```
