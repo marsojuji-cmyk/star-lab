@@ -221,6 +221,11 @@ if [[ -d "$HOOKS_SRC" ]]; then
       mkdir -p "${HOME}/.grok/skills/session-close"
       cp "${ROOT}/packaging/skills/session-close/SKILL.md" "${HOME}/.grok/skills/session-close/SKILL.md"
     fi
+    # human-minimal 1000× operate skill
+    if [[ -f "${ROOT}/packaging/skills/operate-1000x/SKILL.md" ]]; then
+      mkdir -p "${HOME}/.grok/skills/operate-1000x"
+      cp "${ROOT}/packaging/skills/operate-1000x/SKILL.md" "${HOME}/.grok/skills/operate-1000x/SKILL.md"
+    fi
     echo "  hooks: token SessionStart installed → ${HOOKS_DST}/token-session-start.json"
     echo "  galaxy: wrappers galaxy-auto / galaxy-wrap → ${LOCAL_BIN}"
   fi

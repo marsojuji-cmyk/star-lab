@@ -394,12 +394,18 @@ def cmd_loop(args: argparse.Namespace) -> int:
         return int(r.returncode)
     audit_id = None
     mode = "short"
+    budget_tokens = 512
     m = re.search(r"audit_id:\s*(\S+)", r.stdout or "")
     if m:
         audit_id = m.group(1)
     mm = re.search(r"mode:\s+(\S+)", r.stdout or "")
     if mm:
         mode = mm.group(1)
+    bm = re.search(r"budget_tokens:\s+(\d+)", r.stdout or "")
+    if bm:
+        budget_tokens = int(bm.group(1))
+    # Human-minimal: default join tokens from route budget when not passed
+    actual_tokens = args.tokens if args.tokens is not None else budget_tokens
 
     research_id = None
     if not args.no_research:
@@ -442,22 +448,21 @@ def cmd_loop(args: argparse.Namespace) -> int:
             "--tests-passed",
             success,
         ]
-        if args.tokens is not None:
-            cargv += ["--actual-tokens", str(int(args.tokens))]
+        cargv += ["--actual-tokens", str(int(actual_tokens))]
         cargv += ["--notes", "body loop factory_exit=%s" % fac_ec]
         rc = _run_lab(cargv, cwd=cwd, env=env)
         sys.stdout.write(rc.stdout or "")
         if rc.stderr:
             sys.stderr.write(rc.stderr)
 
-    if audit_id and args.tokens is not None:
+    if audit_id:
         targv = [
             "tokens",
             "complete",
             "--audit-id",
             audit_id,
             "--actual-tokens",
-            str(int(args.tokens)),
+            str(int(actual_tokens)),
             "--success",
             success,
             "--body",
@@ -465,14 +470,14 @@ def cmd_loop(args: argparse.Namespace) -> int:
             "--project",
             body.project_key() or body.name,
         ]
-        if args.quality is not None:
-            targv += ["--quality", str(args.quality)]
+        q = args.quality if args.quality is not None else 0.85
+        targv += ["--quality", str(q)]
         tc = _run_lab(targv, cwd=cwd, env=env)
         sys.stdout.write(tc.stdout or "")
         if tc.stderr:
             sys.stderr.write(tc.stderr)
-    elif audit_id:
-        print("loop: skip tokens complete (pass --tokens N to join audit %s)" % audit_id)
+        if args.tokens is None:
+            print("loop: joined tokens complete with route budget=%s (pass --tokens to override)" % actual_tokens)
 
     if args.publish and not args.no_showroom:
         title = "body loop: %s" % (goal[:60] + ("…" if len(goal) > 60 else ""))

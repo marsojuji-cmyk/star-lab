@@ -1,7 +1,8 @@
 # Daily operating — use this / ignore that
 
 **One page.** Control plane + optional lab. Not obligations every turn.  
-**Repo:** `~/Projects/grok-home` · **CLI:** `lab` · **Adopted:** 2026-08-03
+**Repo:** `~/Projects/grok-home` · **CLI:** `lab` · **Adopted:** 2026-08-03  
+**Human-minimal 1000×:** `docs/HUMAN-MINIMAL-1000X.md` — Grok runs ceremony; human states intent.
 
 ---
 
@@ -89,18 +90,26 @@ Habit **B** (packets) is **on-failure only**, not daily.
 
 ## Session skeleton (default)
 
-**Preferred one-shot (de-clunk):** when a body exists for the product repo:
+**Preferred (human types almost nothing — Grok runs these):**
 
 ```bash
-lab body loop project:<name> --goal "…" --tokens N --quality 0.9 [--publish]
-# route → research → factory → complete (+ optional showroom) in one command
+# Multi-step session
+lab auto begin "…" --project <name>     # route+research; state saved (no id paste)
+# … Grok works …
+lab auto finish                         # factory + complete + galaxy
+
+# Or full autopilot smoke
+lab auto go "…" --project <name> [--publish]
+
+# Product body one-shot
+lab body loop project:<name> --goal "…" [--publish]
+# --tokens optional (defaults to route budget)
 ```
 
 Attach body even when cwd is wrong:
 
 ```bash
 lab tokens route "…" --project <name>   # or --body project:<name>
-lab tokens complete --audit-id … --project <name> --actual-tokens N
 lab showroom publish --latest           # or capture … --publish
 ```
 

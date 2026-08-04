@@ -8,6 +8,7 @@ description: End-of-session ritual — flush memory, galaxy harvest + status gla
 When the user is wrapping up, ending the day, or says things like "done for now", "flush", or "save this session":
 
 1. Summarize what changed (files, decisions, blockers) in a few bullets.
+1b. If `lab auto status` shows an open session, run `lab auto finish` yourself (never ask the user for ids).
 2. **Session wrap (Astro Galaxy + tokens)** — run the automated harvest so key data is logged:
    ```bash
    # Preferred one-shot (PATH has galaxy-wrap):
