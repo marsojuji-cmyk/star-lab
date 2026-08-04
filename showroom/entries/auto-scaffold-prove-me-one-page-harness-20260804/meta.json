@@ -1,0 +1,13 @@
+{
+  "capture_id": "20260804T041352Z-auto-scaffold-prove-me-one-page-harness-proof-fr-67f54266",
+  "created_at": "2026-08-04T04:13:52Z",
+  "entry_id": "auto-scaffold-prove-me-one-page-harness-20260804",
+  "kind": "experiment",
+  "paths": [],
+  "project": "prove-me",
+  "proof_commands": [],
+  "published_at": "2026-08-04T04:13:52Z",
+  "source": "manual",
+  "summary": "auto finish success=yes factory=0",
+  "title": "auto: Scaffold prove-me: one-page harness proof from Star Lab history"
+}
