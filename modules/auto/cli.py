@@ -143,7 +143,12 @@ def cmd_begin(args: argparse.Namespace) -> int:
     if not goal:
         print("error: goal required", file=sys.stderr)
         return 2
-    cwd = str(Path(args.cwd or os.getcwd()).expanduser().resolve())
+    cwd_path = Path(args.cwd or os.getcwd()).expanduser()
+    try:
+        cwd_path.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    cwd = str(cwd_path.resolve())
     body = _resolve_body(body=args.body, project=args.project, cwd=cwd)
     body_id = body.body_id if body else None
     project = (body.project_key() if body else None) or args.project
