@@ -1,4 +1,4 @@
-# Grok Home → Grok Star Lab
+# Star Lab
 
 > Not a config tweak. A world stage. Now a free local research lab.
 
