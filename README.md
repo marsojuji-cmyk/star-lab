@@ -1,5 +1,7 @@
 # Star Lab
 
+**A local control plane with safety under always-approve.**
+
 > Not a config tweak. A world stage. Now a free local research lab.
 
 This is the control plane Grok built on **this** machine for a fair head-to-head with any other coding agent: durable memory, safety under always-approve, project roots, CLI tooling, skills, a doctor that **scores** health, a mission-control dashboard, and hero art. **Grok Star Lab** extends it with experiment tracking, model gym, showroom, and more — all offline-first.
