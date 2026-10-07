@@ -1,6 +1,6 @@
 # Architecting a Frontier-Leaning Grok Operating System
 
-_Source: docs/research/grok_research_paper.pdf (extracted text)_
+_Source: text extracted from the original research PDF (the PDF is not included in this repository)_
 
 
 ## Page 1

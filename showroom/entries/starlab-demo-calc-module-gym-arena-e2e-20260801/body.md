@@ -9,8 +9,8 @@ calc tests green; forge+gym smoke; arena lab-audit; token short/medium path
 
 ## Paths
 
-- `/Users/a100/Projects/starlab-demo`
-- `/Users/a100/Projects/starlab-demo/src/calc.py`
+- `<projects-dir>/starlab-demo`
+- `<projects-dir>/starlab-demo/src/calc.py`
 
 ## Proof
 

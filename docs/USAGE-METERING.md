@@ -41,7 +41,7 @@ gh repo create grok-home --private --source=. --remote=github --push
 # or: git remote add github git@github.com:USER/grok-home.git && git push -u github main
 ```
 
-Until then `origin` remains local: `/Users/a100/Projects/grok-home-origin.git`.
+Until then `origin` remains local: `<projects-dir>/grok-home-origin.git`.
 
 ## Local helper
 

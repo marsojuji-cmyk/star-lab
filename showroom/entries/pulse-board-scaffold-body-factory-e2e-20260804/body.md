@@ -9,8 +9,8 @@ New product body: outcome pulse CLI, 6 tests, factory exit 0, github private
 
 ## Paths
 
-- `/Users/a100/Projects/pulse-board/src/pulse.py`
-- `/Users/a100/Projects/pulse-board/tests/test_pulse.py`
+- `<projects-dir>/pulse-board/src/pulse.py`
+- `<projects-dir>/pulse-board/tests/test_pulse.py`
 
 ## Proof
 

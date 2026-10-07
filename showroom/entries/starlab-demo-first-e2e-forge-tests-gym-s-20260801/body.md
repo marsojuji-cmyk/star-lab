@@ -9,8 +9,8 @@ Token-routed short mode; forge unittest OK; gym smoke 3/3 on dolphin3
 
 ## Paths
 
-- `/Users/a100/Projects/starlab-demo`
-- `/Users/a100/Projects/starlab-demo/hello.py`
+- `<projects-dir>/starlab-demo`
+- `<projects-dir>/starlab-demo/hello.py`
 
 ## Proof
 
