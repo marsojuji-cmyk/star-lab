@@ -9,8 +9,8 @@ src/report.py + tests + hello --report; 10 unittest OK; forge exit 0
 
 ## Paths
 
-- `/Users/a100/Projects/starlab-demo/src/report.py`
-- `/Users/a100/Projects/starlab-demo/tests/test_report.py`
+- `<projects-dir>/starlab-demo/src/report.py`
+- `<projects-dir>/starlab-demo/tests/test_report.py`
 
 ## Proof
 

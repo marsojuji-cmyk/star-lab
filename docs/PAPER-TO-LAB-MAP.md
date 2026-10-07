@@ -1,6 +1,6 @@
 # Paper → Star Lab map
 
-**Source:** `docs/research/grok_research_paper.pdf`  
+**Source:** original research PDF (not included in this repository)  
 **Extract:** `docs/research/GROK-OS-PAPER.md`  
 **Title:** Architecting a Frontier-Leaning Grok Operating System
 
@@ -71,4 +71,4 @@ Do **not** distill training or routing data from rejected batches without correc
 ---
 
 *Local portal:* http://127.0.0.1:8765/portal/  
-*Paper PDF:* `docs/research/grok_research_paper.pdf`
+*Paper text:* `docs/research/GROK-OS-PAPER.md`

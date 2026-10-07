@@ -873,7 +873,7 @@ Writes `~/.grok/lab/showroom/inbox/<capture_id>.json` with payload (title, kind,
 2. **Secrets gate:** scan payload paths + body text with regex (`AKIA[0-9A-Z]{16}`, `BEGIN (RSA |OPENSSH )?PRIVATE KEY`, `api[_-]?key\s*=`, etc.). On hit: abort that entry with message.
 3. Allocate stable `entry_id` = slug(title) + date; on collision append short hash.
 4. Write `showroom/entries/<entry_id>/meta.json` + `body.md`.
-5. Paths in meta stored as **repo-relative or `~/Projects/...` portable strings**, not machine-specific `/Users/a100` hardcodes when avoidable (`lab_paths` helper to rewrite).
+5. Paths in meta stored as **repo-relative or `~/Projects/...` portable strings**, not machine-specific absolute home-directory hardcodes when avoidable (`lab_paths` helper to rewrite).
 6. Run `modules/showroom/regen_index.py`: rebuild `showroom/index.html` from all entries’ meta (deterministic sort by date desc).
 7. Mark inbox item `published=1` (or move to `inbox/done/`).
 8. Print optional `git add showroom/entries/<id> showroom/index.html` — user commits; lab never force-commits.

@@ -1078,7 +1078,7 @@ Honesty: headless multi-agent Rhai remains session-tier (existing Star Lab non-g
 - `docs/research/GRAPH-CONTEXT-ROUTING.md` — L2 RCR-style
 - `docs/design/2026-08-01-agentic-circuit-breakers.md` — DEGRADED FSM, body-adjacent limits
 - `docs/PAPER-TO-LAB-MAP.md` — Grok OS paper loops ↔ CLI
-- `docs/research/GROK-OS-PAPER.md` / `grok_research_paper.pdf`
+- `docs/research/GROK-OS-PAPER.md`
 - Code: `bin/lab`, `modules/{tokens,graph,research,forge,ship,showroom,sqc,knowledge,design,dock,sandbox,arena,observatory,imagine}/`, `lib/lab_paths.py`, `scripts/install-lab.sh`, `packaging/hooks/`, `packaging/skills/`
 - Demo: `~/Projects/starlab-demo`, showroom entry `starlab-demo-first-e2e-forge-tests-gym-s-20260801`
 - Breaker autonomy order: `docs/design/2026-08-01-agentic-circuit-breakers.md` (session lock / `min_mode` / tokens PR3)
