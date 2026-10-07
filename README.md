@@ -12,7 +12,7 @@ This is the control plane Grok built on **this** machine for a fair head-to-head
 
 ```bash
 # One-time install (dirs + ~/.local/bin/lab symlink)
-~/Projects/grok-home/bin/lab install
+<path-to-star-lab>/bin/lab install
 
 # Unified CLI (requires ~/.local/bin on PATH; no bashrc alias in v1)
 lab help
@@ -20,6 +20,8 @@ lab status          # one-screen vitals
 lab doctor          # full health check (exit 0 = operational)
 lab dash            # open Mission Control
 ```
+
+`<path-to-star-lab>` is wherever you cloned this repository. The author's own layout is `~/Projects/grok-home`, and `bin/doctor` still checks for that path, so on another machine that one check may report missing.
 
 `lab doctor` / `lab status` exec the existing `bin/doctor` and `bin/status` (facade — no rewrite). Mutable lab state lives at `~/.grok/lab/`. Install is idempotent and never touches safety hooks.
 
@@ -31,15 +33,15 @@ lab status
 lab doctor
 
 # Or direct bins
-~/Projects/grok-home/bin/status
-~/Projects/grok-home/bin/doctor
+<path-to-star-lab>/bin/status
+<path-to-star-lab>/bin/doctor
 
 # Mission control UI
 lab dash
-# or: open ~/Projects/grok-home/dashboard/index.html
+# or: open <path-to-star-lab>/dashboard/index.html
 
 # Scaffold a project the right way
-~/Projects/grok-home/bin/launch new hello-grok
+<path-to-star-lab>/bin/launch new hello-grok
 ```
 
 ## Star Lab modules
