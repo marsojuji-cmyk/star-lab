@@ -184,7 +184,7 @@ Hand this to yourself after both agents "set up home":
 
 ## Status
 
-Personal research lab in daily use on the author's machine. CI covers the token router, the experiment forge and the CLI facade.
+Personal research lab, built around the author's own machine layout. CI covers the token router, the experiment forge and the CLI facade.
 
 ## License
 
